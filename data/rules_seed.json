@@ -1,0 +1,165 @@
+{
+  "_notice": "DRAFT preliminary-review rules only. No value in this file is an official Saudi Building Code requirement. Every rule remains status=draft and is_active=false until the exact clause is verified against the official published documents and signed off by a licensed professional (validated_by). Values are placeholders for the review workflow.",
+  "rules": [
+    {
+      "code": "PRELIM-SETBACK-FRONT",
+      "title_ar": "فحص أولي: الارتداد الأمامي لا يقل عن الحد المُدخل في ملف التحقق",
+      "title_en": "Preliminary check: front setback not below the configured draft minimum",
+      "category": "setbacks",
+      "severity": "high",
+      "check": { "type": "min", "field": "setback_front_m", "value": 3.0, "unit": "m" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Saudi Building Code SBC 201 (official published edition) — value pending clause verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-SETBACK-SIDE",
+      "title_ar": "فحص أولي: الارتداد الجانبي لا يقل عن الحد المُدخل",
+      "title_en": "Preliminary check: side setback not below the configured draft minimum",
+      "category": "setbacks",
+      "severity": "high",
+      "check": { "type": "min", "field": "setback_side_m", "value": 2.0, "unit": "m" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal zoning requirements (Balady) — varies by municipality; pending verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-SETBACK-REAR",
+      "title_ar": "فحص أولي: الارتداد الخلفي لا يقل عن الحد المُدخل",
+      "title_en": "Preliminary check: rear setback not below the configured draft minimum",
+      "category": "setbacks",
+      "severity": "medium",
+      "check": { "type": "min", "field": "setback_rear_m", "value": 2.0, "unit": "m" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal zoning requirements (Balady) — varies by municipality; pending verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-COVERAGE-RATIO",
+      "title_ar": "فحص أولي: نسبة تغطية المبنى للأرض لا تتجاوز الحد المُدخل",
+      "title_en": "Preliminary check: building coverage ratio not above the configured draft maximum",
+      "category": "massing",
+      "severity": "high",
+      "check": { "type": "max", "field": "coverage_ratio", "value": 0.6, "unit": "ratio" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal zoning requirements — varies by plot classification; pending verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-MAX-FLOORS",
+      "title_ar": "فحص أولي: عدد الأدوار لا يتجاوز الحد المُدخل لنطاق الأرض",
+      "title_en": "Preliminary check: floor count not above the configured draft maximum",
+      "category": "massing",
+      "severity": "high",
+      "check": { "type": "max", "field": "floors", "value": 4, "unit": "floors" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal zoning plan for the specific district — pending verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-HEIGHT-LIMIT",
+      "title_ar": "فحص أولي: ارتفاع المبنى لا يتجاوز الحد المُدخل",
+      "title_en": "Preliminary check: building height not above the configured draft maximum",
+      "category": "massing",
+      "severity": "medium",
+      "check": { "type": "max", "field": "building_height_m", "value": 18.0, "unit": "m" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal zoning plan / SBC 201 — pending clause verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-PARKING-MIN",
+      "title_ar": "فحص أولي: توفر الحد الأدنى المُدخل من مواقف السيارات لكل وحدة",
+      "title_en": "Preliminary check: minimum configured parking spaces per unit",
+      "category": "parking",
+      "severity": "medium",
+      "check": { "type": "min_ratio", "field": "parking_spaces", "per_field": "units", "value": 1.0, "unit": "spaces/unit" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal parking requirements — varies by land use; pending verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-PLOT-AREA-MIN",
+      "title_ar": "فحص أولي: مساحة الأرض لا تقل عن الحد المُدخل للاستخدام السكني",
+      "title_en": "Preliminary check: plot area not below the configured draft minimum for residential use",
+      "category": "plot",
+      "severity": "low",
+      "check": { "type": "min", "field": "plot_area_m2", "value": 200.0, "unit": "m2" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal subdivision regulations — pending verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-LANDUSE-DECLARED",
+      "title_ar": "فحص أولي: تحديد نوع استخدام الأرض مطلوب لاكتمال المراجعة",
+      "title_en": "Preliminary check: land use classification must be declared",
+      "category": "documentation",
+      "severity": "high",
+      "check": { "type": "required_enum", "field": "land_use", "values": ["residential", "commercial", "mixed", "industrial"] },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Required input for any municipal permit application — procedural, not a code value",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "medium",
+        "validated_by": null
+      }
+    },
+    {
+      "code": "PRELIM-FAR-MAX",
+      "title_ar": "فحص أولي: معامل البناء (FAR) لا يتجاوز الحد المُدخل",
+      "title_en": "Preliminary check: floor area ratio not above the configured draft maximum",
+      "category": "massing",
+      "severity": "medium",
+      "check": { "type": "max", "field": "far", "value": 2.0, "unit": "ratio" },
+      "status": "draft",
+      "governance": {
+        "source_reference": "Municipal zoning plan — varies by district; pending verification",
+        "clause": "",
+        "last_reviewed_date": "",
+        "confidence_level": "draft",
+        "validated_by": null
+      }
+    }
+  ]
+}

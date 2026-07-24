@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>بصير - العراب لفحص الكود | Alarrab CodeVision AI</title>
+  <link rel="stylesheet" href="/ui/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>العرّاب لفحص كود البناء</h1>
+      <p class="brand">Alarrab CodeVision AI — Powered by Bassir Technology</p>
+    </div>
+    <span class="badge">نسخة تجريبية — مراجعة أولية غير رسمية</span>
+  </header>
+
+  <main>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-panel="panel-assess">المراجعة الأولية</button>
+      <button class="tab" data-panel="panel-permit">جاهزية الرخصة</button>
+      <button class="tab" data-panel="panel-design">مساعد التصميم</button>
+      <button class="tab" data-panel="panel-sources">المصادر التنظيمية</button>
+    </nav>
+
+    <section id="panel-assess" class="panel active">
+      <h2>المراجعة الأولية لمعاملات المشروع</h2>
+      <p class="hint">أدخل بيانات مشروعك وسيتم فحصها مقابل قواعد تحقق أولية (مسودة غير رسمية).</p>
+      <form id="assess-form" class="grid">
+        <label>اسم المشروع <input name="project_name" type="text" placeholder="فيلا سكنية - حي النرجس"></label>
+        <label>المدينة <input name="city" type="text" placeholder="الرياض"></label>
+        <label>استخدام الأرض
+          <select name="land_use">
+            <option value="">— اختر —</option>
+            <option value="residential">سكني</option>
+            <option value="commercial">تجاري</option>
+            <option value="mixed">مختلط</option>
+            <option value="industrial">صناعي</option>
+          </select>
+        </label>
+        <label>مساحة الأرض (م²) <input name="plot_area_m2" type="number" step="any" min="0"></label>
+        <label>عدد الأدوار <input name="floors" type="number" step="1" min="0"></label>
+        <label>ارتفاع المبنى (م) <input name="building_height_m" type="number" step="any" min="0"></label>
+        <label>الارتداد الأمامي (م) <input name="setback_front_m" type="number" step="any" min="0"></label>
+        <label>الارتداد الجانبي (م) <input name="setback_side_m" type="number" step="any" min="0"></label>
+        <label>الارتداد الخلفي (م) <input name="setback_rear_m" type="number" step="any" min="0"></label>
+        <label>نسبة التغطية (0-1) <input name="coverage_ratio" type="number" step="any" min="0" max="1"></label>
+        <label>معامل البناء FAR <input name="far" type="number" step="any" min="0"></label>
+        <label>عدد الوحدات <input name="units" type="number" step="1" min="0"></label>
+        <label>عدد المواقف <input name="parking_spaces" type="number" step="1" min="0"></label>
+        <div class="actions">
+          <button type="submit" class="primary">تشغيل المراجعة الأولية</button>
+        </div>
+      </form>
+      <div id="assess-result" class="result" hidden></div>
+    </section>
+
+    <section id="panel-permit" class="panel">
+      <h2>مؤشر جاهزية رخصة البناء</h2>
+      <p class="hint">حدد المستندات المتوفرة لديك للحصول على مؤشر جاهزية استرشادي.</p>
+      <form id="permit-form" class="checklist"></form>
+      <div class="actions">
+        <button id="permit-run" class="primary" type="button">حساب مؤشر الجاهزية</button>
+      </div>
+      <div id="permit-result" class="result" hidden></div>
+    </section>
+
+    <section id="panel-design" class="panel">
+      <h2>مساعد التصميم الاسترشادي</h2>
+      <form id="design-form" class="grid">
+        <label>مساحة الأرض (م²) <input name="plot_area_m2" type="number" step="any" min="0"></label>
+        <label>عدد الأدوار <input name="floors" type="number" step="1" min="0"></label>
+        <label>نسبة التغطية (0-1) <input name="coverage_ratio" type="number" step="any" min="0" max="1"></label>
+        <label>استخدام الأرض
+          <select name="land_use">
+            <option value="residential">سكني</option>
+            <option value="commercial">تجاري</option>
+            <option value="mixed">مختلط</option>
+          </select>
+        </label>
+        <div class="actions">
+          <button type="submit" class="primary">اقتراحات التصميم</button>
+        </div>
+      </form>
+      <div id="design-result" class="result" hidden></div>
+    </section>
+
+    <section id="panel-sources" class="panel">
+      <h2>المصادر التنظيمية المعتمدة في الحوكمة</h2>
+      <p class="hint">قائمة المصادر الرسمية التي يتتبعها النظام. القيم الدقيقة تؤخذ من الوثائق الرسمية فقط.</p>
+      <div id="sources-result" class="result">جاري التحميل…</div>
+    </section>
+  </main>
+
+  <footer class="disclaimer">
+    <p><strong>إخلاء مسؤولية:</strong>
+      هذا النظام يقدم مراجعة هندسية وتنظيمية أولية بمساعدة الذكاء الاصطناعي فقط. وهو ليس جهة اعتماد رسمية
+      ولا يغني عن المهندسين المرخصين، أو الوثائق الرسمية لكود البناء السعودي، أو البلديات، أو الدفاع المدني،
+      أو مزودي الخدمات، أو الجهات الحكومية. يجب التحقق من جميع المخرجات بواسطة مختصين مؤهلين قبل التقديم أو التنفيذ.
+    </p>
+    <p dir="ltr" class="en">This system provides AI-assisted preliminary engineering and regulatory review only.
+      It is not an official approval authority and does not replace licensed engineers, Saudi Building Code
+      official documents, municipalities, Civil Defense, utility providers, or government authorities.
+      All outputs must be verified by qualified professionals before submission or construction.</p>
+  </footer>
+
+  <script src="/ui/app.js"></script>
+</body>
+</html>

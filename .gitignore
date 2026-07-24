@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+.env
+.env.*
+!.env.example
+
+alarrab.db
+*.sqlite3
+storage/
+backups/
+
+node_modules/
+.DS_Store
