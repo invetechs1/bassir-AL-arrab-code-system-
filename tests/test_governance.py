@@ -6,7 +6,7 @@ from app.governance.rule_candidates import (
 )
 
 VALID_REVIEW = {
-    "candidate_id": "CAND-SBC-1001",
+    "candidate_id": "CAND-SBC-1101",
     "decision": "approve",
     "clause": "Section 4.2.1 (verified against official PDF)",
     "last_reviewed_date": "2026-07-20",

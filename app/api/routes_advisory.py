@@ -42,8 +42,8 @@ def assistant_suggest(body: AssistantRequest, principal=Depends(require("assista
         blob = " ".join([res["title_ar"], res["title_en"], res["issuer"]]).lower()
         if ("fire" in matched and ("fire" in blob or "801" in res["id"])) or \
            ("permit" in matched and ("balady" in blob or "permit" in blob or "municipal" in blob)) or \
-           ("structure" in matched and "301" in res["id"]) or \
-           ("residential" in matched and "1001" in res["id"]) or \
+           ("structure" in matched and res["id"] in ("SBC-301", "SBC-302", "SBC-303", "SBC-304")) or \
+           ("residential" in matched and res["id"] in ("SBC-1101", "SBC-1102")) or \
            ("setback" in matched and ("balady" in blob or "municipal" in blob or "201" in res["id"])):
             relevant.append({
                 "id": res["id"], "title_ar": res["title_ar"], "title_en": res["title_en"],

@@ -10,7 +10,7 @@
       "check": { "type": "min", "field": "setback_front_m", "value": 3.0, "unit": "m" },
       "status": "draft",
       "governance": {
-        "source_reference": "Saudi Building Code SBC 201 (official published edition) — value pending clause verification",
+        "source_reference": "Saudi Building Code SBC 201 / SBC 1101 (official published editions, sbc.gov.sa) — value pending clause verification",
         "clause": "",
         "last_reviewed_date": "",
         "confidence_level": "draft",
