@@ -16,6 +16,7 @@ AI-assisted preliminary engineering & regulatory review platform foundation for 
 - Drawing/file upload with strict security validation (size, extension, magic bytes, path traversal, dangerous names)
 - Vision & BIM/IFC review foundations (honest metadata extraction; CV pipeline on roadmap)
 - Arabic RTL report generation (HTML + JSON)
+- Six-tab Arabic/English web interface with a client-side **2D schematic drawing generator** (7 sheets: site, ground floor, typical floor, elevation, section, parking, roof) and A3-landscape print/PDF
 - Regulatory source catalog + governed rule-candidate review workflow (P0/P1/P2)
 - JWT + API-key auth, roles/permissions, tenant-scoped data model, audit logs
 - FastAPI + SQLAlchemy (SQLite demo / PostgreSQL production), Docker, Nginx
@@ -62,7 +63,34 @@ Backups: `./scripts/backup-db.sh` (cron daily) — restore with `./scripts/resto
 | `GET /v1/rule-candidates/from-resources`, `GET /v1/rule-candidates/review-package` | candidate workflow |
 | `POST /v1/rule-candidates/review/validate`, `POST /v1/rule-candidates/review/export-draft-rules` | professional review → inactive draft rules |
 | `GET /v1/production/readiness` | deployment self-checks |
-| `GET /ui` | Arabic RTL web interface |
+| `GET /ui` | Arabic/English RTL web interface + 2D drawing generator |
+
+## Web interface (`/ui`)
+
+Vanilla HTML/CSS/JS served from `web/` by `app/api/routes_ui.py` — no build step,
+no bundler, no npm install. Six tabs: Project, Drawings, Review, Permit, Assistant,
+Sources; Arabic RTL by default with an EN toggle.
+
+The **Drawings** tab generates seven schematic CAD sheets client-side from the
+project record (A-101 site, A-102 ground floor, A-103 typical floor, A-201
+elevation, A-301 section, A-104 parking, A-105 roof). Geometry, space planning, and
+parking layout are deterministic and dependency-free; compliance failures are drawn
+onto the relevant sheets. The print button produces A3-landscape output, one sheet
+per page.
+
+The Review tab mirrors the ten rules in `data/rules_seed.json` client-side (same
+`high|medium|low` severities and 3/2/1 score weighting as `app/engine/assessment.py`)
+so the UI is usable unauthenticated. **These remain DRAFT placeholder values, not
+official code requirements** — the governance invariants below still hold, and the
+generated sheets are indicative schematics, not approved construction documents.
+To use the server engine instead, uncomment `loadServerAssessment()` at the bottom
+of `web/app.js`; `/v1/assess` requires an auth token with `assess:run`.
+
+Fonts (IBM Plex Sans Arabic / IBM Plex Mono) load from Google Fonts, which the
+Content-Security-Policy in `app/security/headers.py` permits. For a deployment that
+must make no third-party requests, self-host both families, swap the `<link>` in
+`web/index.html`, and drop `fonts.googleapis.com` / `fonts.gstatic.com` from that
+policy — the CSS already falls back to `system-ui` / `monospace`.
 
 ## Regulatory governance invariants
 
