@@ -11,7 +11,7 @@ price. Nothing in this output may be used for a tender, a contract sum or
 a client commitment without a priced bill from the market.
 """
 
-from app.agents.base import Agent, metric, note, rec, verify
+from app.agents.base import Agent, metric, note, rec, rng, verify
 
 # Indicative rate bands (SAR), low-high. Planning figures for order-of-magnitude
 # budgeting only; they are not quotations and carry no market validity date.
@@ -67,7 +67,6 @@ class QuantityAgent(Agent):
             "joinery_doors": gfa,
             "mep_mech": gfa,
             "mep_elec": gfa,
-            "mep_elec_ref": gfa,
             "external_works": open_site,
         }
 
@@ -113,13 +112,19 @@ class QuantityAgent(Agent):
         total_low, total_high = net_low + vat_low, net_high + vat_high
 
         months = max(6, int(round(gfa / BUILD_RATE_M2_MONTH)))
-        quarter = max(1, months // 4)
+        # Split the programme into four periods that between them cover every
+        # month. Integer division on its own leaves the tail uncovered.
         cashflow = []
+        periods = len(S_CURVE)
         for i, share in enumerate(S_CURVE):
+            start = months * i // periods + 1
+            end = months * (i + 1) // periods
             cashflow.append({
                 "period_ar": f"الربع {i + 1}",
                 "period_en": f"Quarter {i + 1}",
-                "months": f"{i * quarter + 1}-{min(months, (i + 1) * quarter)}",
+                "months": f"{start}-{end}" if end > start else f"{start}",
+                "month_from": start,
+                "month_to": end,
                 "share": share,
                 "low": round(net_low * share),
                 "high": round(net_high * share),
@@ -138,7 +143,7 @@ class QuantityAgent(Agent):
         ]
 
         recommendations = [
-            rec(f"الميزانية الاسترشادية {total_low / 1e6:,.2f} - {total_high / 1e6:,.2f} مليون ريال شاملة الضريبة — استخدم الحد الأعلى للتخطيط المالي.",
+            rec(f"الميزانية الاسترشادية {rng(total_low / 1e6, total_high / 1e6, ',.2f')} مليون ريال شاملة الضريبة — استخدم الحد الأعلى للتخطيط المالي.",
                 f"An indicative budget of SAR {total_low / 1e6:,.2f}-{total_high / 1e6:,.2f} million including VAT — plan against the upper bound.",
                 "high"),
             rec("هذه الأسعار نطاقات تخطيطية وليست عروض أسعار — اطلب تسعيرًا من السوق قبل أي التزام تعاقدي أو وعد للعميل.",
@@ -154,8 +159,8 @@ class QuantityAgent(Agent):
 
         return {
             "summary_ar": (
-                f"تكلفة إنشائية استرشادية {net_low / 1e6:,.2f}-{net_high / 1e6:,.2f} مليون ريال قبل الضريبة "
-                f"({net_low / gfa:,.0f}-{net_high / gfa:,.0f} ريال/م²) على مدى {months} شهرًا."
+                f"تكلفة إنشائية استرشادية {rng(net_low / 1e6, net_high / 1e6, ',.2f')} مليون ريال قبل الضريبة "
+                f"({rng(net_low / gfa, net_high / gfa)} ريال/م²) على مدى {months} شهرًا."
             ),
             "summary_en": (
                 f"An indicative SAR {net_low / 1e6:,.2f}-{net_high / 1e6:,.2f} million before VAT "

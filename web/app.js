@@ -816,7 +816,15 @@ function panelSources() {
  * answers unauthenticated; where AUTH_REQUIRED is on it returns 401/403 and
  * the panel asks for a token. */
 
-var D = { status: "idle", data: null, error: "", token: "" };
+var D = { status: "idle", data: null, error: "", token: "", sig: "" };
+
+/* Signature of the inputs the agents actually read, so a package rendered
+ * from stale project values can say so instead of looking current. */
+function projSig() {
+  var g = geom(), p = S.p;
+  return [p.project_name, p.city, p.office, p.land_use, p.building_type,
+    g.pw, g.pd, g.sbF, g.sbS, g.sbR, g.floors, g.fh, g.units, g.parking].join("|");
+}
 
 var SEV_LABEL = {
   high: ["حرج", "Critical"],
@@ -839,7 +847,7 @@ function runAlarrab() {
   var headers = { "Content-Type": "application/json" };
   if (D.token) { headers.Authorization = "Bearer " + D.token; }
 
-  var g = geom(), p = S.p;
+  var g = geom(), p = S.p, sig = projSig();
   fetch(API_BASE + "/v1/design/alarrab", {
     method: "POST",
     headers: headers,
@@ -862,6 +870,7 @@ function runAlarrab() {
   }).then(function (data) {
     if (!data) { return; }
     D.data = data;
+    D.sig = sig;
     D.status = "done";
     render();
   }).catch(function (err) {
@@ -997,6 +1006,11 @@ function panelAlarrab() {
   }
 
   var d = D.data, h = d.headline, co = d.coordination;
+  var stale = D.sig && D.sig !== projSig()
+    ? '<div class="note warn"><strong>' + t("نتائج قديمة", "Stale results") + "</strong> — " +
+      t("تغيّرت بيانات المشروع بعد آخر تشغيل. أعد تشغيل الوكلاء لتحديث المخرجات.",
+        "The project data changed after the last run. Re-run the agents to refresh these outputs.") + "</div>"
+    : "";
   /* Units live in the labels so every value is a pure LTR numeral. Mixing
    * digits and units inside one RTL cell reorders them visually. */
   var cards = [
@@ -1024,7 +1038,7 @@ function panelAlarrab() {
           esc(t(i.action_ar, i.action_en)) + "</p></div>";
       }).join(""));
 
-  return head + button +
+  return head + button + stale +
     '<div class="cards headline">' + cards.map(function (c) {
       return '<div class="metric"><div class="k">' + esc(c[0]) + '</div><div class="v">' + esc(c[1]) + "</div></div>";
     }).join("") + "</div>" +

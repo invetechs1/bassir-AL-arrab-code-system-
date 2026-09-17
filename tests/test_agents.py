@@ -1,5 +1,6 @@
 """Tests for the seven senior discipline agents and their coordinator."""
 
+import re
 import unittest
 
 from app.agents import AGENTS, list_agents, run_design
@@ -167,9 +168,100 @@ class TestQuantitySurveyor(unittest.TestCase):
     def test_cashflow_shares_sum_to_one(self):
         self.assertAlmostEqual(sum(p["share"] for p in self.package["cashflow"]), 1.0, places=6)
 
+    def test_cashflow_periods_cover_the_whole_programme(self):
+        """Integer division used to leave the tail of the programme unbudgeted."""
+        for params in (VILLA, TOWER, dict(VILLA, plot_w=40, plot_d=50, floors=4)):
+            package = next(a for a in run_design(params)["agents"] if a["agent_id"] == "quantity")
+            months = package["outputs"]["months"]
+            flow = package["cashflow"]
+            self.assertEqual(flow[0]["month_from"], 1, months)
+            self.assertEqual(flow[-1]["month_to"], months, months)
+            for earlier, later in zip(flow, flow[1:]):
+                self.assertEqual(later["month_from"], earlier["month_to"] + 1, months)
+                self.assertGreaterEqual(earlier["month_to"], earlier["month_from"], months)
+
     def test_states_that_rates_are_not_quotations(self):
         blob = " ".join(r["en"].lower() for r in self.package["recommendations"])
         self.assertIn("not quotations", blob)
+
+
+class TestGeneratedProse(unittest.TestCase):
+    """The summaries are shown verbatim in the UI, so they have to read cleanly."""
+
+    def test_no_broken_article_before_a_breaker_rating(self):
+        # A hardcoded a/an list got 1000 wrong ("a one-thousand"), so the
+        # article was dropped entirely. Guard against it coming back.
+        for floors in range(1, 9):
+            for btype in ("villa", "apartment", "commercial", "industrial"):
+                package = run_design(dict(TOWER, floors=floors, building_type=btype))
+                summary = next(a for a in package["agents"] if a["agent_id"] == "electrical")["summary_en"]
+                self.assertNotIn(" a 800 ", summary)
+                self.assertNotIn(" an 1000 ", summary)
+                self.assertNotIn(" a  ", summary)
+
+    def test_small_tanks_are_not_reported_as_zero(self):
+        package = run_design({"plot_w": 8, "plot_d": 10, "floors": 1})
+        mech = next(a for a in package["agents"] if a["agent_id"] == "mechanical")
+        self.assertGreater(mech["outputs"]["ground_tank_m3"], 0)
+        self.assertNotIn("0 m³ ground", mech["summary_en"])
+
+    def test_no_summary_contains_a_placeholder_or_none(self):
+        for params in (VILLA, TOWER):
+            for agent in run_design(params)["agents"]:
+                for key in ("summary_ar", "summary_en"):
+                    self.assertNotIn("None", agent[key], f"{agent['agent_id']}.{key}")
+                    self.assertNotIn("{", agent[key], f"{agent['agent_id']}.{key}")
+
+
+class TestArabicBidiSafety(unittest.TestCase):
+    """Arabic prose must not carry an unisolated tight numeric range.
+
+    Under an RTL base direction a run like "12.65-23.29" renders as
+    "23.29-12.65", silently swapping the low and high ends of a cost range.
+    base.rng() wraps such runs in LRI...PDI; this guards every other string.
+    """
+
+    ISOLATED = re.compile("\u2066[^\u2069]*\u2069")
+    TIGHT_RANGE = re.compile(r"\d-\d")
+
+    def arabic_strings(self, package):
+        """Every Arabic string a user can read, with its location."""
+        for agent in package["agents"]:
+            where = agent["agent_id"]
+            yield f"{where}.summary_ar", agent["summary_ar"]
+            for group in ("recommendations", "assumptions", "verify"):
+                for i, item in enumerate(agent.get(group, [])):
+                    yield f"{where}.{group}[{i}].ar", item["ar"]
+            for i, row in enumerate(agent.get("schedule", [])):
+                if isinstance(row, dict) and "ar" in row:
+                    yield f"{where}.schedule[{i}].ar", row["ar"]
+        for issue in package["coordination"]["issues"]:
+            yield f"clash:{issue['id']}.ar", issue["ar"]
+            yield f"clash:{issue['id']}.action_ar", issue["action_ar"]
+
+    def test_no_unisolated_tight_range_in_arabic_prose(self):
+        cases = [
+            VILLA, TOWER,
+            dict(VILLA, building_type="commercial", plot_w=40, plot_d=50, floors=4),
+            dict(VILLA, building_type="industrial"),
+            dict(VILLA, building_type="mixed", city="الدمام"),
+        ]
+        for params in cases:
+            package = run_design(params)
+            for where, text in self.arabic_strings(package):
+                bare = self.ISOLATED.sub("", text)
+                self.assertIsNone(
+                    self.TIGHT_RANGE.search(bare),
+                    f"{where} carries an unisolated tight range: {text!r}",
+                )
+
+    def test_isolates_are_balanced(self):
+        for where, text in self.arabic_strings(run_design(TOWER)):
+            self.assertEqual(text.count("\u2066"), text.count("\u2069"), where)
+
+    def test_isolates_do_not_leak_into_english(self):
+        for agent in run_design(TOWER)["agents"]:
+            self.assertNotIn("\u2066", agent["summary_en"], agent["agent_id"])
 
 
 class TestCoordination(unittest.TestCase):

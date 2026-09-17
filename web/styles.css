@@ -83,7 +83,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 28px 32px 64px; }
 h2.section { margin: 0 0 6px; font-size: 21px; font-weight: 600; }
 p.hint { margin: 0 0 22px; font-size: 13.5px; color: var(--muted); max-width: 70ch; line-height: 1.7; }
 .rowhead { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.derived { font-size: 12px; color: var(--muted); font-family: var(--mono); unicode-bidi: isolate; }
+.derived { font-size: 12px; color: var(--muted); font-family: var(--mono); direction: ltr; unicode-bidi: isolate; }
 
 /* ---------- forms ---------- */
 
@@ -156,8 +156,16 @@ th {
   border-bottom: 1px solid var(--line); font-weight: 600; font-size: 11.5px; color: #3e4c46;
 }
 td { padding: 11px 14px; border-bottom: 1px solid var(--line-soft); line-height: 1.5; }
-td.mono { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
-td.detail { font-family: var(--mono); font-size: 11.5px; color: var(--muted); text-align: left; unicode-bidi: isolate; }
+/* Numeric and Latin technical content is forced to LTR order. Under the
+ * page's RTL base direction a string like "2,666 - 4,916 SAR/m²" reorders to
+ * "SAR/m² 4,916 - 2,666", which silently swaps the low and high ends of a
+ * range. Alignment still follows the page, so only the character order moves. */
+td.mono { font-family: var(--mono); font-size: 11.5px; color: var(--muted); direction: ltr; unicode-bidi: isolate; }
+.metric .v, .scorepanel .v { direction: ltr; unicode-bidi: isolate; }
+html[dir="rtl"] td.mono,
+html[dir="rtl"] .metric .v,
+html[dir="rtl"] .scorepanel .v { text-align: right; }
+td.detail { font-family: var(--mono); font-size: 11.5px; color: var(--muted); text-align: left; direction: ltr; unicode-bidi: isolate; }
 .st-pass { color: var(--pass); font-weight: 600; white-space: nowrap; }
 .st-fail { color: var(--fail); font-weight: 600; white-space: nowrap; }
 .st-needs_review { color: var(--warn); font-weight: 600; white-space: nowrap; }
@@ -236,9 +244,6 @@ td.detail { font-family: var(--mono); font-size: 11.5px; color: var(--muted); te
 .authbox { padding: 18px 20px; margin-bottom: 18px; }
 .authbox p { margin: 0 0 12px; font-size: 13px; line-height: 1.7; }
 .authbox .grid { max-width: 360px; }
-
-/* headline values are pure numerals: keep them LTR inside the RTL page */
-.headline .metric .v { direction: ltr; unicode-bidi: isolate; }
 
 /* ---------- disclaimer ---------- */
 

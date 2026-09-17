@@ -123,7 +123,7 @@ class ElectricalAgent(Agent):
 
         recommendations = [
             rec(f"اطلب تغذية ثلاثية الطور بقاطع رئيسي {breaker} أمبير بناءً على حمل مقدّر {demand_kva:.0f} ك.ف.أ.",
-                f"Request a three-phase supply with a {breaker} A main breaker for the {demand_kva:.0f} kVA diversified demand.",
+                f"Request a three-phase supply rated {breaker} A at the main breaker for the {demand_kva:.0f} kVA diversified demand.",
                 "high"),
         ]
         if transformer:
@@ -155,11 +155,9 @@ class ElectricalAgent(Agent):
                 f"قاطع رئيسي {breaker} أمبير، {'مع محول مخصص' if transformer else 'بدون محول مخصص'}."
             ),
             "summary_en": (
-                f"{connected_kva:.0f} kVA connected and {demand_kva:.0f} kVA diversified, on a "
-                f"{breaker} A main breaker, {'with' if transformer else 'without'} a dedicated transformer."
-                if breaker not in (800, 1000) else
-                f"{connected_kva:.0f} kVA connected and {demand_kva:.0f} kVA diversified, on an "
-                f"{breaker} A main breaker, {'with' if transformer else 'without'} a dedicated transformer."
+                f"{connected_kva:.0f} kVA connected and {demand_kva:.0f} kVA diversified, "
+                f"main breaker {breaker} A, "
+                f"{'with' if transformer else 'without'} a dedicated transformer."
             ),
             "metrics": metrics,
             "schedule": schedule,

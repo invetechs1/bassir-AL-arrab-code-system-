@@ -156,11 +156,11 @@ class MechanicalAgent(Agent):
         return {
             "summary_ar": (
                 f"حمل تبريد {tons:.0f} طن ({cooling_kw:.0f} ك.و) عبر {sys_ar}، "
-                f"وتخزين مياه {ground_tank_m3:.0f} م³ أرضي و{roof_tank_m3:.1f} م³ علوي."
+                f"وتخزين مياه {ground_tank_m3:.1f} م³ أرضي و{roof_tank_m3:.1f} م³ علوي."
             ),
             "summary_en": (
                 f"A {tons:.0f} TR ({cooling_kw:.0f} kW) cooling load served by {sys_en.lower()}, "
-                f"with {ground_tank_m3:.0f} m³ ground and {roof_tank_m3:.1f} m³ roof water storage."
+                f"with {ground_tank_m3:.1f} m³ ground and {roof_tank_m3:.1f} m³ roof water storage."
             ),
             "metrics": metrics,
             "schedule": [],

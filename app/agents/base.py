@@ -16,6 +16,25 @@ from app.legal import disclaimer
 
 SENIORITY = "senior"
 
+# Unicode directional isolates. A tight numeric range such as "12.65-23.29"
+# embedded in Arabic prose renders with its ends swapped under an RTL base
+# direction (verified in Chromium), which silently turns a cost range of
+# 12.65-23.29 million into 23.29-12.65. Wrapping the run in LRI...PDI pins it
+# to LTR order. The two characters are invisible and change no glyph, so the
+# same string is safe in HTML, a terminal, or a generated document.
+LRI = "\u2066"
+PDI = "\u2069"
+
+
+def ltr(text) -> str:
+    """Pin a Latin/numeric run to LTR order inside bidirectional prose."""
+    return f"{LRI}{text}{PDI}"
+
+
+def rng(low, high, spec=",.0f") -> str:
+    """Format a low-high range as one isolated LTR run."""
+    return ltr(f"{low:{spec}}-{high:{spec}}")
+
 # Priority bands for recommendations, mirroring the assessment engine's
 # severity vocabulary so the UI can reuse the same styling.
 PRIORITIES = ("high", "medium", "low")
