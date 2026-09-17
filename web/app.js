@@ -121,7 +121,7 @@ function program(level) {
   var bt = S.p.building_type;
   if (bt === "villa") {
     return level === "ground"
-      ? [A("مجلس رجال", "Majlis", 22), A("مقلط", "Guest dining", 10), A("صالة معيشة", "Living", 20),
+      ? [A("مجلس رجال", "Majlis", 22), A("مقلط", "Guest lounge", 10), A("صالة معيشة", "Living", 20),
          A("مطبخ", "Kitchen", 11), A("غرفة خادمة", "Maid", 7), A("دورة مياه", "WC", 4),
          A("درج", "Stair", 7), A("مستودع", "Store", 5)]
       : [A("غرفة نوم رئيسية", "Master bedroom", 20), A("حمام رئيسي", "Master bath", 6),
@@ -219,12 +219,25 @@ DRAW.rc = function (x, y, w, h, o) {
 DRAW.tx = function (x, y, s, o) {
   o = o || {};
   var anchor = o.anchor || "start";
+  // An Arabic label needs an RTL base direction, otherwise a name carrying an
+  // embedded latin run ("بورسلين R11 مع عزل مائي") has its words ordered
+  // left to right and reads backwards. RTL also flips where text-anchor
+  // "start" puts the string, so swap the anchor to keep every call site's
+  // x meaning the same edge it meant before.
+  if (o.rtl) {
+    if (anchor === "start") { anchor = "end"; }
+    else if (anchor === "end") { anchor = "start"; }
+  }
   return '<text x="' + f2(x) + '" y="' + f2(y) + '" font-size="' + (o.size || 9) +
     '" font-family="' + (o.mono === false ? SANS : MONO) + '" fill="' + (o.fill || INK) +
     '" text-anchor="' + anchor + '" font-weight="' + (o.weight || 400) + '"' +
     (o.rot ? ' transform="rotate(' + o.rot + " " + f2(x) + " " + f2(y) + ')"' : "") +
     (o.ls ? ' letter-spacing="' + o.ls + '"' : "") +
-    ' direction="ltr" style="unicode-bidi:isolate">' + esc(s) + "</text>";
+    // Arabic labels resolve their own base direction, so a name carrying an
+    // embedded latin run ("بورسلين R11 مع عزل مائي") keeps its word order.
+    // Everything else is pinned to LTR so numerals and units never reorder.
+    (o.rtl ? ' direction="rtl" style="unicode-bidi:isolate"'
+           : ' direction="ltr" style="unicode-bidi:isolate"') + ">" + esc(s) + "</text>";
 };
 
 DRAW.dimH = function (x1, x2, y, label, flag) {
@@ -245,13 +258,16 @@ DRAW.dimV = function (y1, y2, x, label, flag) {
 
 /* ============================ sheet chrome ============================ */
 
-var SHEETS = ["site", "ground", "typical", "elevation", "section", "parking", "roof"];
+var SHEETS = ["site", "ground", "typical", "interior", "elevation", "section", "parking", "roof"];
 
 function sheetMeta(key) {
   var M = {
     site: [t("مخطط الموقع العام", "Site Plan"), "A-101"],
     ground: [t("مخطط الدور الأرضي", "Ground Floor Plan"), "A-102"],
-    typical: [t("مخطط الدور المتكرر", "Typical Floor Plan"), "A-103"],
+    typical: S.p.building_type === "villa"
+      ? [t("مخطط الدور الأول", "First Floor Plan"), "A-103"]
+      : [t("مخطط الدور المتكرر", "Typical Floor Plan"), "A-103"],
+    interior: [t("مخطط التصميم الداخلي والتشطيبات", "Interior Design and Finishes Plan"), "A-106"],
     elevation: [t("الواجهة الأمامية", "Front Elevation"), "A-201"],
     section: [t("مقطع رأسي أ-أ", "Section A-A"), "A-301"],
     parking: [t("مخطط المواقف", "Parking Layout"), "A-104"],
@@ -262,7 +278,11 @@ function sheetMeta(key) {
 
 function contentSize(key, g) {
   if (key === "elevation" || key === "section") { return { w: g.bw + 8, h: g.height + 6 }; }
-  if (key === "ground" || key === "typical" || key === "roof") { return { w: g.bw + 8, h: g.bd + 8 }; }
+  if (key === "ground" || key === "typical" || key === "interior") {
+    var pd = planPad(g);
+    return { w: g.bw + 2 * pd, h: g.bd + 2 * pd };
+  }
+  if (key === "roof") { return { w: g.bw + 8, h: g.bd + 8 }; }
   return { w: g.pw + 8, h: g.pd + 8 };
 }
 
@@ -288,6 +308,7 @@ DRAW.legend = function (key, x, y) {
     site: [[t("حدود الأرض", "Plot boundary"), "solid"], [t("خط الارتداد", "Setback line"), "dash"], [t("بصمة المبنى", "Building footprint"), "fill"]],
     ground: [[t("جدار خارجي", "External wall"), "thick"], [t("قاطع داخلي", "Partition"), "solid"], [t("فتحة/باب", "Opening"), "dash"]],
     typical: [[t("جدار خارجي", "External wall"), "thick"], [t("قاطع داخلي", "Partition"), "solid"], [t("حد الوحدة", "Unit boundary"), "dash"]],
+    interior: [[t("أثاث وتجهيزات", "Furniture and fixtures"), "fill"], [t("رمز التشطيب", "Finish code"), "solid"], [t("باب بحركة الفتح", "Door with swing"), "dash"]],
     elevation: [[t("خط الأرض", "Ground line"), "thick"], [t("فتحة نافذة", "Window"), "fill"], [t("خط منسوب", "Level line"), "dash"]],
     section: [[t("بلاطة خرسانية", "Concrete slab"), "fill"], [t("أساسات", "Foundation"), "thick"], [t("منسوب دور", "Floor level"), "dash"]],
     parking: [[t("موقف سيارة", "Parking bay"), "solid"], [t("مسار حركة", "Drive aisle"), "dash"], [t("بصمة المبنى", "Footprint"), "fill"]],
@@ -324,7 +345,13 @@ DRAW.titleBlock = function (W, H, TB, meta, den) {
   rows.forEach(function (r, i) {
     var cx = startX + (i % 3) * colW, cy = y + 22 + Math.floor(i / 3) * 34;
     out += DRAW.tx(cx, cy, r[0], { size: 7, fill: THIN, ls: ".6px" });
-    out += DRAW.tx(cx, cy + 13, String(r[1]).slice(0, 22), { size: 9.5, mono: false, weight: 500, rtl: true });
+    var val = String(r[1]);
+    // ellipsis on a word boundary rather than a hard cut mid-word
+    if (val.length > 30) {
+      var cut = val.slice(0, 30), sp = cut.lastIndexOf(" ");
+      val = (sp > 16 ? cut.slice(0, sp) : cut) + "…";
+    }
+    out += DRAW.tx(cx, cy + 13, val, { size: val.length > 24 ? 8.5 : 9.5, mono: false, weight: 500, rtl: true });
   });
   return out + DRAW.ln(startX - 16, y, startX - 16, H - 18, 0.6, null, THIN);
 };
@@ -349,6 +376,312 @@ DRAW.flags = function (key, W) {
 
 /* ============================ sheet assembly ============================ */
 
+/* ==================== architectural plan engine ====================
+ * Replaces the earlier area-slicing with a designed villa layout: rooms are
+ * placed in three bands, walls carry real thickness, openings are cut out of
+ * the walls, doors get swing arcs and rooms are furnished per type.
+ * All dimensions are metres in the envelope's own coordinate space (0..W, 0..D)
+ * with the street/front edge at y = 0.
+ */
+
+var WALL_EXT = 0.20, WALL_INT = 0.10, DOOR_W = 0.90;
+
+/* Room layout as fractions of the buildable envelope. side: n=front, s=rear. */
+function villaRooms(level, W, D) {
+  var R = [];
+  function add(key, ar, en, x0, y0, x1, y1, type, door, win) {
+    R.push({ key: key, ar: ar, en: en, x: x0 * W, y: y0 * D,
+             w: (x1 - x0) * W, h: (y1 - y0) * D, type: type,
+             door: door || null, win: win || [] });
+  }
+
+  if (level === "ground") {
+    add("majlis", "مجلس", "Majlis", 0, 0, 0.58, 0.34, "majlis",
+        { side: "s", at: 0.72 },
+        [{ side: "n", at: 0.5, len: 2.0 }, { side: "w", at: 0.5, len: 1.6 }]);
+    add("entry", "مدخل", "Entry", 0.58, 0, 1, 0.34, "entry",
+        { side: "n", at: 0.5, main: true },
+        [{ side: "e", at: 0.5, len: 1.2 }]);
+    add("wc", "دورة مياه", "WC", 0, 0.34, 0.26, 0.56, "wc",
+        { side: "e", at: 0.5 },
+        [{ side: "w", at: 0.5, len: 0.6 }]);
+    add("hall", "صالة توزيع ودرج", "Hall and stair", 0.26, 0.34, 1, 0.56, "stair", null, []);
+    add("living", "صالة معيشة", "Family living", 0, 0.56, 0.58, 1, "living",
+        { side: "n", at: 0.55 },
+        [{ side: "w", at: 0.55, len: 1.8 }, { side: "s", at: 0.5, len: 2.0 }]);
+    add("kitchen", "مطبخ", "Kitchen", 0.58, 0.56, 1, 1, "kitchen",
+        { side: "n", at: 0.5 },
+        [{ side: "s", at: 0.5, len: 1.4 }, { side: "e", at: 0.6, len: 1.2 }]);
+  } else {
+    add("master", "غرفة نوم رئيسية", "Master bedroom", 0, 0, 0.60, 0.38, "bed_master",
+        { side: "s", at: 0.75 },
+        [{ side: "n", at: 0.5, len: 1.8 }, { side: "w", at: 0.5, len: 1.4 }]);
+    add("mbath", "حمام رئيسي", "Master bath", 0.60, 0, 1, 0.38, "bath",
+        { side: "s", at: 0.5 },
+        [{ side: "e", at: 0.5, len: 0.8 }]);
+    add("bath", "حمام", "Bathroom", 0, 0.38, 0.26, 0.56, "wc",
+        { side: "e", at: 0.5 },
+        [{ side: "w", at: 0.5, len: 0.6 }]);
+    add("landing", "بسطة ودرج", "Landing and stair", 0.26, 0.38, 1, 0.56, "stair", null, []);
+    add("bed2", "غرفة نوم ٢", "Bedroom 2", 0, 0.56, 0.50, 1, "bed",
+        { side: "n", at: 0.6 },
+        [{ side: "w", at: 0.55, len: 1.4 }, { side: "s", at: 0.5, len: 1.4 }]);
+    add("bed3", "غرفة نوم ٣", "Bedroom 3", 0.50, 0.56, 1, 1, "bed",
+        { side: "n", at: 0.4 },
+        [{ side: "s", at: 0.5, len: 1.4 }, { side: "e", at: 0.55, len: 1.4 }]);
+  }
+  return R;
+}
+
+/* Absolute coordinates of an opening on a room edge, in metres. */
+function edgePoint(r, side, at, len) {
+  if (side === "n") { return { x: r.x + r.w * at - len / 2, y: r.y, horiz: true, len: len }; }
+  if (side === "s") { return { x: r.x + r.w * at - len / 2, y: r.y + r.h, horiz: true, len: len }; }
+  if (side === "w") { return { x: r.x, y: r.y + r.h * at - len / 2, horiz: false, len: len }; }
+  return { x: r.x + r.w, y: r.y + r.h * at - len / 2, horiz: false, len: len };
+}
+
+/* Door: white gap through the wall, leaf line and quarter-circle swing. */
+function drawDoor(r, m, ox, oy) {
+  var d = r.door;
+  if (!d) { return ""; }
+  var X = m.X, Y = m.Y, Sc = m.S;
+  var p = edgePoint(r, d.side, d.at, DOOR_W);
+  var t = (d.side === "n" || d.side === "s") ? WALL_INT : WALL_INT;
+  var out = "";
+  if (p.horiz) {
+    out += DRAW.rc(X(ox + p.x), Y(oy + p.y) - Sc(t) / 2 - 0.4, Sc(DOOR_W), Sc(t) + 0.8,
+      { fill: "#fff", stroke: null });
+    var yy = Y(oy + p.y), x0 = X(ox + p.x), x1 = X(ox + p.x + DOOR_W);
+    var dir = d.side === "n" ? 1 : -1;
+    out += DRAW.ln(x0, yy, x0, yy + dir * Sc(DOOR_W), 0.7);
+    out += '<path d="M' + f2(x0) + " " + f2(yy + dir * Sc(DOOR_W)) + " A" + f2(Sc(DOOR_W)) + " " +
+      f2(Sc(DOOR_W)) + " 0 0 " + (dir > 0 ? 0 : 1) + " " + f2(x1) + " " + f2(yy) +
+      '" fill="none" stroke="' + THIN + '" stroke-width="0.45"/>';
+  } else {
+    out += DRAW.rc(X(ox + p.x) - Sc(t) / 2 - 0.4, Y(oy + p.y), Sc(t) + 0.8, Sc(DOOR_W),
+      { fill: "#fff", stroke: null });
+    var xx = X(ox + p.x), y0 = Y(oy + p.y), y1 = Y(oy + p.y + DOOR_W);
+    var dx = d.side === "w" ? 1 : -1;
+    out += DRAW.ln(xx, y0, xx + dx * Sc(DOOR_W), y0, 0.7);
+    out += '<path d="M' + f2(xx + dx * Sc(DOOR_W)) + " " + f2(y0) + " A" + f2(Sc(DOOR_W)) + " " +
+      f2(Sc(DOOR_W)) + " 0 0 " + (dx > 0 ? 1 : 0) + " " + f2(xx) + " " + f2(y1) +
+      '" fill="none" stroke="' + THIN + '" stroke-width="0.45"/>';
+  }
+  return out;
+}
+
+/* Window: gap in the external wall with two sill lines. */
+function drawWindow(r, w, m, ox, oy, W, D) {
+  var X = m.X, Y = m.Y, Sc = m.S;
+  var p = edgePoint(r, w.side, w.at, w.len);
+  // only cut windows in the external envelope
+  var onEdge = (w.side === "n" && Math.abs(p.y) < 0.01) || (w.side === "s" && Math.abs(p.y - D) < 0.01) ||
+               (w.side === "w" && Math.abs(p.x) < 0.01) || (w.side === "e" && Math.abs(p.x - W) < 0.01);
+  if (!onEdge) { return ""; }
+  var out = "", t = WALL_EXT;
+  if (p.horiz) {
+    out += DRAW.rc(X(ox + p.x), Y(oy + p.y) - Sc(t) / 2 - 0.3, Sc(w.len), Sc(t) + 0.6, { fill: "#fff", stroke: null });
+    out += DRAW.ln(X(ox + p.x), Y(oy + p.y) - Sc(t) / 3, X(ox + p.x + w.len), Y(oy + p.y) - Sc(t) / 3, 0.5);
+    out += DRAW.ln(X(ox + p.x), Y(oy + p.y) + Sc(t) / 3, X(ox + p.x + w.len), Y(oy + p.y) + Sc(t) / 3, 0.5);
+  } else {
+    out += DRAW.rc(X(ox + p.x) - Sc(t) / 2 - 0.3, Y(oy + p.y), Sc(t) + 0.6, Sc(w.len), { fill: "#fff", stroke: null });
+    out += DRAW.ln(X(ox + p.x) - Sc(t) / 3, Y(oy + p.y), X(ox + p.x) - Sc(t) / 3, Y(oy + p.y + w.len), 0.5);
+    out += DRAW.ln(X(ox + p.x) + Sc(t) / 3, Y(oy + p.y), X(ox + p.x) + Sc(t) / 3, Y(oy + p.y + w.len), 0.5);
+  }
+  return out;
+}
+
+/* ---------------- furniture ----------------
+ * Drawn in metres inside the room rectangle. FURN is thin-line so it reads as
+ * loose furniture rather than structure. */
+var FURN = "#8d9b95", FURN_FILL = "#f2f4f3";
+
+function planFurniture(r, m, ox, oy) {
+  var X = m.X, Y = m.Y, Sc = m.S, out = "";
+  var pad = 0.14;
+  function box(x, y, w, h, o) {
+    o = o || {};
+    if (w <= 0.05 || h <= 0.05) { return ""; }
+    return DRAW.rc(X(ox + r.x + x), Y(oy + r.y + y), Sc(w), Sc(h),
+      { sw: o.sw || 0.5, fill: o.fill === null ? "none" : (o.fill || FURN_FILL), stroke: o.stroke || FURN });
+  }
+  function line(x1, y1, x2, y2) {
+    return DRAW.ln(X(ox + r.x + x1), Y(oy + r.y + y1), X(ox + r.x + x2), Y(oy + r.y + y2), 0.45, null, FURN);
+  }
+  function circle(cx, cy, rad) {
+    return '<circle cx="' + f2(X(ox + r.x + cx)) + '" cy="' + f2(Y(oy + r.y + cy)) + '" r="' + f2(Sc(rad)) +
+      '" fill="' + FURN_FILL + '" stroke="' + FURN + '" stroke-width="0.45"/>';
+  }
+  var W = r.w, D = r.h;
+
+  if (r.type === "majlis") {
+    var seat = Math.min(0.85, W * 0.22, D * 0.22);
+    out += box(pad, pad, W - 2 * pad, seat);                       // seating along front
+    out += box(pad, pad + seat, seat, D - 2 * pad - seat);          // seating along side
+    out += box(W - pad - seat, pad + seat, seat, D - 2 * pad - seat);
+    var tw = Math.min(1.2, (W - 2 * seat - 2 * pad) * 0.6), th = Math.min(0.6, D * 0.18);
+    if (tw > 0.3) { out += box((W - tw) / 2, (D - th) / 2 + seat * 0.2, tw, th); }
+  } else if (r.type === "living") {
+    var sd = Math.min(0.85, D * 0.24);
+    out += box(pad, D - pad - sd, W - 2 * pad, sd);                 // sofa on rear wall
+    out += box(pad + W * 0.18, pad, W * 0.64, Math.min(0.45, D * 0.14)); // TV unit
+    var ctw = Math.min(1.1, W * 0.4), cth = Math.min(0.55, D * 0.16);
+    out += box((W - ctw) / 2, (D - cth) / 2, ctw, cth);
+  } else if (r.type === "kitchen") {
+    var c = Math.min(0.62, W * 0.28, D * 0.28);
+    out += box(pad, pad, W - 2 * pad, c);                           // counter run
+    out += box(pad, pad + c, c, D - 2 * pad - c);                   // return leg
+    out += circle(W * 0.42, pad + c / 2, Math.min(0.22, c * 0.38)); // sink
+    out += box(W * 0.66, pad + c * 0.16, c * 0.85, c * 0.68, { fill: "none" }); // hob
+    var dw = Math.min(1.0, (W - c - 2 * pad) * 0.7), dh = Math.min(0.7, (D - c) * 0.3);
+    if (dw > 0.4 && dh > 0.3) { out += box(c + pad + 0.2, D - pad - dh - 0.1, dw, dh); }
+  } else if (r.type === "bed_master" || r.type === "bed") {
+    var bw = r.type === "bed_master" ? 1.8 : 1.4, bh = 2.0;
+    bw = Math.min(bw, W * 0.55); bh = Math.min(bh, D * 0.52);
+    var bx = (W - bw) / 2, by = pad + 0.05;
+    out += box(bx, by, bw, bh);                                     // bed
+    out += line(bx, by + bh * 0.26, bx + bw, by + bh * 0.26);       // pillow line
+    var st = Math.min(0.45, (W - bw) / 2 - pad);
+    if (st > 0.15) {
+      out += box(bx - st - 0.06, by, st, st);
+      out += box(bx + bw + 0.06, by, st, st);
+    }
+    var ww = Math.min(1.8, W - 2 * pad), wd = Math.min(0.6, D * 0.18);
+    out += box((W - ww) / 2, D - pad - wd, ww, wd);                 // wardrobe
+    out += line((W - ww) / 2, D - pad - wd, (W + ww) / 2, D - pad - wd);
+  } else if (r.type === "bath" || r.type === "wc") {
+    var bs = Math.min(0.42, W * 0.3, D * 0.22);
+    out += box(pad, pad, bs * 1.35, bs);                            // basin
+    out += box(pad, pad + bs + 0.18, bs * 1.1, bs * 1.35);          // toilet
+    out += circle(pad + bs * 0.55, pad + bs + 0.18 + bs * 0.45, bs * 0.34);
+    if (r.type === "bath") {
+      var sh = Math.min(0.95, W - 2 * pad - bs * 1.35 - 0.1, D * 0.4);
+      if (sh > 0.45) {
+        out += box(W - pad - sh, D - pad - sh, sh, sh, { fill: "none" });
+        out += line(W - pad - sh, D - pad - sh, W - pad, D - pad);
+        out += line(W - pad, D - pad - sh, W - pad - sh, D - pad);
+      }
+    }
+  } else if (r.type === "stair") {
+    var run = Math.min(D - 2 * pad, 3.6), fl = Math.min(1.15, W * 0.42), steps = 9;
+    var sx = pad + 0.1, sy = (D - run) / 2;
+    out += box(sx, sy, fl, run, { fill: "none" });
+    for (var i = 1; i < steps; i++) {
+      out += line(sx, sy + run * i / steps, sx + fl, sy + run * i / steps);
+    }
+    out += line(sx + fl / 2, sy + run * 0.86, sx + fl / 2, sy + run * 0.12);
+    out += line(sx + fl / 2, sy + run * 0.12, sx + fl * 0.32, sy + run * 0.26);
+    out += line(sx + fl / 2, sy + run * 0.12, sx + fl * 0.68, sy + run * 0.26);
+  } else if (r.type === "entry") {
+    var cw = Math.min(1.0, W * 0.5);
+    out += box((W - cw) / 2, D - pad - 0.35, cw, 0.35);
+  }
+  return out;
+}
+
+/* ---------------- finishes (mirrors app/agents/interior.py families) ---------------- */
+var FINISH = {
+  majlis:     ["F1", "رخام/بورسلين مقاس كبير", "Large-format porcelain"],
+  entry:      ["F1", "رخام/بورسلين مقاس كبير", "Large-format porcelain"],
+  living:     ["F2", "بورسلين مصقول", "Polished porcelain"],
+  bed:        ["F3", "بورسلين أو باركيه", "Porcelain or engineered timber"],
+  bed_master: ["F3", "بورسلين أو باركيه", "Porcelain or engineered timber"],
+  kitchen:    ["F4", "بورسلين مقاوم للانزلاق R10", "Anti-slip porcelain R10"],
+  bath:       ["F5", "بورسلين R11 مع عزل مائي", "Anti-slip porcelain R11 over tanking"],
+  wc:         ["F5", "بورسلين R11 مع عزل مائي", "Anti-slip porcelain R11 over tanking"],
+  stair:      ["F6", "بورسلين مقاوم للتآكل", "Hard-wearing porcelain"]
+};
+
+/* Slab depth from the span, mirroring app/agents/structural.py so the section
+ * and the structural report describe the same building. */
+/* Margin around a floor plan, in metres. A fixed margin left a small villa
+ * floating in white space on an A3 sheet. */
+function planPad(g) { return Math.max(1.4, 0.13 * Math.max(g.bw, g.bd)); }
+
+function slabThickness(g) {
+  var bw = Math.max(1, g.bw), bd = Math.max(1, g.bd);
+  var nw = Math.max(1, Math.ceil(bw / 6)), nd = Math.max(1, Math.ceil(bd / 6));
+  var span = Math.max(bw / nw, bd / nd);
+  var ratio = span <= 5 ? 28 : (span <= 7.5 ? 33 : (span <= 9.5 ? 36 : 42));
+  return Math.max(0.15, Math.ceil(span * 1000 / ratio / 10) * 10 / 1000);
+}
+
+/* ---------------- the plan renderer ---------------- */
+function drawPlan(m, level, opts) {
+  opts = opts || {};
+  var g = m.g, X = m.X, Y = m.Y, Sc = m.S, ox = planPad(g), oy = planPad(g);
+  var W = g.bw, D = g.bd, out = "";
+  var rooms = villaRooms(level, W, D);
+
+  // slab / floor field
+  out += DRAW.rc(X(ox), Y(oy), Sc(W), Sc(D), { fill: "#fff", sw: 0 });
+
+  // internal partitions: stroking each room draws shared walls at full thickness
+  rooms.forEach(function (r) {
+    out += DRAW.rc(X(ox + r.x), Y(oy + r.y), Sc(r.w), Sc(r.h),
+      { sw: Math.max(1.1, Sc(WALL_INT)), fill: "none" });
+  });
+  // external envelope
+  out += DRAW.rc(X(ox), Y(oy), Sc(W), Sc(D), { sw: Math.max(2, Sc(WALL_EXT)), fill: "none" });
+
+  // openings cut through the walls
+  rooms.forEach(function (r) {
+    r.win.forEach(function (w) { out += drawWindow(r, w, m, ox, oy, W, D); });
+  });
+  rooms.forEach(function (r) { out += drawDoor(r, m, ox, oy); });
+
+  // furniture
+  rooms.forEach(function (r) { out += planFurniture(r, m, ox, oy); });
+
+  // labels
+  rooms.forEach(function (r) {
+    var cx = X(ox + r.x + r.w / 2), cy = Y(oy + r.y + r.h / 2);
+    var area = r.w * r.h;
+    var fits = Sc(r.w) > 42 && Sc(r.h) > 26;
+    if (!fits) {
+      out += DRAW.tx(cx, cy, t(r.ar, r.en).slice(0, 9),
+        { size: 6.5, anchor: "middle", mono: false, rtl: true, fill: THIN });
+      return;
+    }
+    var lift = r.type === "stair" ? Sc(r.h) * 0.34 : 0;
+    var fs = Math.min(10, Math.max(7.5, Sc(r.w) / 10));
+    var name = t(r.ar, r.en);
+    var extra = (opts.finishes && FINISH[r.type]) ? 11 : 0;
+    // white halo keeps the label legible where it lands on furniture
+    var hw = Math.max(46, name.length * fs * 0.52), hh = 20 + extra;
+    out += DRAW.rc(cx - hw / 2, cy - 13 - lift, hw, hh, { fill: "#fff", stroke: null });
+    out += DRAW.tx(cx, cy - 3 - lift, name,
+      { size: fs, anchor: "middle", mono: false, weight: 500, rtl: true });
+    out += DRAW.tx(cx, cy + 7 - lift, fmt(area, 1) + " m²",
+      { size: 7.2, anchor: "middle", fill: THIN });
+    if (extra) {
+      out += DRAW.tx(cx, cy + 17 - lift, FINISH[r.type][0],
+        { size: 7, anchor: "middle", fill: "#0f6b54", weight: 600 });
+    }
+  });
+
+  // dimension chains from the room grid
+  var xs = [0], ys = [0];
+  rooms.forEach(function (r) {
+    [r.x, r.x + r.w].forEach(function (v) { if (!xs.some(function (a) { return Math.abs(a - v) < 0.05; })) { xs.push(v); } });
+    [r.y, r.y + r.h].forEach(function (v) { if (!ys.some(function (a) { return Math.abs(a - v) < 0.05; })) { ys.push(v); } });
+  });
+  xs.sort(function (a, b) { return a - b; });
+  ys.sort(function (a, b) { return a - b; });
+  for (var i = 0; i < xs.length - 1; i++) {
+    if (xs[i + 1] - xs[i] < 0.4) { continue; }
+    out += DRAW.dimH(X(ox + xs[i]), X(ox + xs[i + 1]), Y(oy) - 15, fmt(xs[i + 1] - xs[i], 2));
+  }
+  for (var j = 0; j < ys.length - 1; j++) {
+    if (ys[j + 1] - ys[j] < 0.4) { continue; }
+    out += DRAW.dimV(Y(oy + ys[j]), Y(oy + ys[j + 1]), X(ox + W) + 17, fmt(ys[j + 1] - ys[j], 2));
+  }
+  out += DRAW.dimH(X(ox), X(ox + W), Y(oy) - 34, fmt(W, 2) + " m");
+  out += DRAW.dimV(Y(oy), Y(oy + D), X(ox + W) + 36, fmt(D, 2) + " m");
+  return out;
+}
+
 function buildSheet(key) {
   var W = 1160, H = 800, TB = 92, pad = 44, top = 40, bot = H - TB - 56;
   var g = geom(), meta = sheetMeta(key), spec = contentSize(key, g);
@@ -365,6 +698,7 @@ function buildSheet(key) {
   var body = ({
     site: bodySite, ground: function (mm) { return bodyPlan(mm, "ground"); },
     typical: function (mm) { return bodyPlan(mm, "typical"); },
+    interior: bodyInterior,
     elevation: bodyElevation, section: bodySection, parking: bodyParking, roof: bodyRoof
   }[key] || bodySite)(m);
 
@@ -403,6 +737,20 @@ function bodySite(m) {
 
 /* ---------- A-102 / A-103 floor plans ---------- */
 function bodyPlan(m, level) {
+  /* Villas get the designed layout with walls, openings and furniture; the
+   * other building types still use the area slicer. */
+  if (S.p.building_type === "villa") {
+    var lv = level === "ground" ? "ground" : "first";
+    return drawPlan(m, lv, { finishes: level === "interior" }) +
+      DRAW.tx(m.X(planPad(m.g)), m.Y(planPad(m.g) + m.g.bd) + 42,
+        (level === "ground" ? t("الدور الأرضي", "GROUND FLOOR") : t("الدور الأول", "FIRST FLOOR")) +
+        "   ·   " + fmt(m.g.footprint, 1) + " m² " + t("مسطح الدور", "floor area"),
+        { size: 8.5, rtl: true });
+  }
+  return bodyPlanGeneric(m, level);
+}
+
+function bodyPlanGeneric(m, level) {
   var g = m.g, X = m.X, Y = m.Y, Sc = m.S, ox = 4, oy = 4, wallT = 0.25, out = "";
   out += DRAW.rc(X(ox), Y(oy), Sc(g.bw), Sc(g.bd), { sw: 2.2 });
   out += DRAW.rc(X(ox + wallT), Y(oy + wallT), Sc(g.bw - 2 * wallT), Sc(g.bd - 2 * wallT), { sw: 0.7 });
@@ -449,6 +797,40 @@ function bodyPlan(m, level) {
   return out;
 }
 
+/* ---------- A-106 interior design and finishes ---------- */
+function bodyInterior(m) {
+  var g = m.g, out = "";
+  if (S.p.building_type !== "villa") {
+    return bodyPlanGeneric(m, "ground") +
+      DRAW.tx(m.X(planPad(g)), m.Y(planPad(g) + g.bd) + 42,
+        t("مخطط التشطيبات متاح لنمط الفيلا في هذه النسخة.",
+          "The finishes plan is available for the villa type in this release."),
+        { size: 8.5, rtl: true });
+  }
+  out += drawPlan(m, "ground", { finishes: true });
+
+  // finishes schedule keyed to the codes printed in each room
+  var seen = [], rooms = villaRooms("ground", g.bw, g.bd);
+  rooms.forEach(function (r) {
+    var f = FINISH[r.type];
+    if (f && !seen.some(function (a) { return a[0] === f[0]; })) { seen.push(f); }
+  });
+  var x = m.W - 322, y = 96;
+  out += DRAW.rc(x - 12, y - 24, 306, 30 + seen.length * 17, { fill: "#fbfaf8", sw: 0.6, stroke: THIN });
+  out += DRAW.tx(x, y - 10, t("جدول التشطيبات — الأرضيات", "FLOOR FINISHES SCHEDULE"),
+    { size: 8, fill: THIN, ls: "1px" });
+  seen.forEach(function (f, i) {
+    var yy = y + 8 + i * 17;
+    out += DRAW.tx(x, yy, f[0], { size: 8, weight: 600, fill: "#0f6b54" });
+    out += DRAW.tx(x + 30, yy, t(f[1], f[2]), { size: 7.6, mono: false, rtl: true });
+  });
+  out += DRAW.tx(m.X(planPad(g)), m.Y(planPad(g) + g.bd) + 42,
+    t("التصميم الداخلي والتشطيبات · الدور الأرضي", "INTERIOR DESIGN AND FINISHES · GROUND FLOOR") +
+    "   ·   " + t("الأثاث استرشادي غير مقيد", "furniture indicative, not binding"),
+    { size: 8.5, rtl: true });
+  return out;
+}
+
 /* ---------- A-201 front elevation ---------- */
 function bodyElevation(m) {
   var g = m.g, X = m.X, Y = m.Y, Sc = m.S, ox = 4, base = 4 + g.height, top = base - g.height, out = "";
@@ -482,7 +864,7 @@ function bodyElevation(m) {
 
 /* ---------- A-301 section A-A ---------- */
 function bodySection(m) {
-  var g = m.g, X = m.X, Y = m.Y, Sc = m.S, ox = 4, base = 4 + g.height, top = base - g.height, slab = 0.28, out = "";
+  var g = m.g, X = m.X, Y = m.Y, Sc = m.S, ox = 4, base = 4 + g.height, top = base - g.height, slab = slabThickness(g), out = "";
   out += DRAW.rc(X(ox - 0.5), Y(base), Sc(g.bw + 1), Sc(1.2), { sw: 1.8, fill: "#d9ded9" });
   out += DRAW.ln(X(ox) - 30, Y(base), X(ox + g.bw) + 30, Y(base), 1.2, "8 4", THIN);
   for (var fl = 0; fl < g.floors; fl++) {
@@ -502,7 +884,7 @@ function bodySection(m) {
   out += DRAW.rc(X(ox), Y(top - slab - 0.9), Sc(0.25), Sc(0.9), { sw: 0.9, fill: "#dfe4e1" });
   out += DRAW.rc(X(ox + g.bw - 0.25), Y(top - slab - 0.9), Sc(0.25), Sc(0.9), { sw: 0.9, fill: "#dfe4e1" });
   out += DRAW.dimV(Y(top - slab - 0.9), Y(base), X(ox + g.bw) + 26, fmt(g.height) + " m", g.height > 18);
-  out += DRAW.tx(X(ox), Y(base) + 40, t("مقطع رأسي أ-أ", "SECTION A-A") + "   ·   " + t("سماكة البلاطة", "slab") + " 0.28 m   ·   " + t("منسوب التأسيس", "footing") + " -1.20 m", { size: 8.5, rtl: true });
+  out += DRAW.tx(X(ox), Y(base) + 40, t("مقطع رأسي أ-أ", "SECTION A-A") + "   ·   " + t("سماكة البلاطة", "slab") + " " + fmt(slab, 2) + " m   ·   " + t("منسوب التأسيس", "footing") + " -1.20 m", { size: 8.5, rtl: true });
   return out;
 }
 
@@ -944,6 +1326,20 @@ function alarrabSchedule(agent) {
     head.join("</th><th>") + "</th></tr></thead><tbody>" + body.join("") + "</tbody></table></div></details>";
 }
 
+function alarrabCashflow(agent) {
+  var rows = agent.cashflow || [];
+  if (!rows.length) { return ""; }
+  return "<details class=\"agentfold\"><summary>" + t("التدفق النقدي", "Cashflow") +
+    " (" + rows.length + ")</summary><div class=\"tablewrap\"><table><thead><tr><th>" +
+    [t("الفترة", "Period"), t("الأشهر", "Months"), t("الحصة", "Share"), t("من", "From"), t("إلى", "To")].join("</th><th>") +
+    "</th></tr></thead><tbody>" + rows.map(function (r) {
+      return "<tr><td>" + esc(t(r.period_ar, r.period_en)) + '</td><td class="mono">' + esc(r.months) +
+        '</td><td class="mono">' + Math.round(r.share * 100) + '%</td><td class="mono">' +
+        Number(r.low).toLocaleString("en") + '</td><td class="mono">' +
+        Number(r.high).toLocaleString("en") + "</td></tr>";
+    }).join("") + "</tbody></table></div></details>";
+}
+
 function alarrabAgent(agent, index) {
   var recs = agent.recommendations || [];
   return '<section class="agentcard">' +
@@ -958,6 +1354,7 @@ function alarrabAgent(agent, index) {
         esc(t(r.ar, r.en)) + "</span></div>";
     }).join("") + "</div>" : "") +
     alarrabSchedule(agent) +
+    alarrabCashflow(agent) +
     alarrabList(t("الافتراضات", "Assumptions"), agent.assumptions) +
     alarrabList(t("يحتاج تحقق", "Needs verification"), agent.verify) +
     "</section>";
