@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from app.api import (
-    routes_advisory, routes_assess, routes_auth, routes_rules,
+    routes_advisory, routes_assess, routes_auth, routes_design, routes_rules,
     routes_system, routes_ui,
 )
 from app.config import settings
@@ -62,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_auth.router)
     app.include_router(routes_assess.router)
     app.include_router(routes_advisory.router)
+    app.include_router(routes_design.router)
     app.include_router(routes_rules.router)
     app.include_router(routes_ui.router)
 

@@ -188,6 +188,58 @@ td.detail { font-family: var(--mono); font-size: 11.5px; color: var(--muted); te
 }
 .suggest .n { font-family: var(--mono); font-size: 11.5px; color: var(--brand); padding-top: 2px; }
 
+/* ---------- design by alarrab ---------- */
+
+.section.sub { font-size: 14px; margin-top: 32px; }
+
+.agentgrid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px;
+}
+.agentchip {
+  background: var(--paper); border: 1px solid var(--line); padding: 14px 16px;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.agentchip strong { display: block; font-size: 13px; font-weight: 600; }
+.agentchip span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.6; }
+.agentno {
+  font-family: var(--mono); font-size: 11.5px; color: var(--brand);
+  border: 1px solid var(--line); padding: 2px 6px; flex: none;
+}
+
+.agentcard { background: var(--paper); border: 1px solid var(--line); margin-bottom: 14px; }
+.agenthead {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 16px 20px; border-bottom: 1px solid var(--line-soft); background: #fbfaf8;
+}
+.agenthead h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.agentrole { margin: 4px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.6; }
+.agentsum { margin: 0; padding: 16px 20px; font-size: 13px; line-height: 1.8; }
+.agentcard .tablewrap { border: none; border-top: 1px solid var(--line-soft); }
+.agentrecs { border-top: 1px solid var(--line-soft); }
+.agentrecs .suggest:last-child { border-bottom: none; }
+.agentrecs .n { flex: none; min-width: 58px; }
+
+.agentfold { border-top: 1px solid var(--line-soft); }
+.agentfold > summary {
+  padding: 12px 20px; font-size: 12px; color: var(--brand);
+  cursor: pointer; font-family: var(--mono);
+}
+.agentfold > summary:hover { background: #f7f6f3; }
+.agentfold ul { margin: 0; padding: 0 40px 16px; font-size: 12.5px; color: var(--muted); line-height: 1.9; }
+.agentfold .src { font-family: var(--mono); font-size: 11px; color: var(--thin); }
+.agentfold .tablewrap { border-top: none; }
+
+.issuehead { display: flex; gap: 12px; align-items: baseline; margin-bottom: 6px; }
+.issuedisc { font-family: var(--mono); font-size: 11px; color: var(--thin); unicode-bidi: isolate; }
+.issueact { margin: 8px 0 0; color: var(--muted); }
+
+.authbox { padding: 18px 20px; margin-bottom: 18px; }
+.authbox p { margin: 0 0 12px; font-size: 13px; line-height: 1.7; }
+.authbox .grid { max-width: 360px; }
+
+/* headline values are pure numerals: keep them LTR inside the RTL page */
+.headline .metric .v { direction: ltr; unicode-bidi: isolate; }
+
 /* ---------- disclaimer ---------- */
 
 .disclaimer {
@@ -209,4 +261,6 @@ td.detail { font-family: var(--mono); font-size: 11.5px; color: var(--muted); te
   main { padding: 0; max-width: none; }
   .sheetwrap { border: none; padding: 0; }
   .sheetwrap svg { max-height: none; }
+  .agentfold[open] > summary { display: none; }
+  .agentcard { break-inside: avoid; }
 }

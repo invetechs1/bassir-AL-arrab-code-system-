@@ -34,6 +34,25 @@ class DesignSuggestRequest(BaseModel):
     coverage_ratio: Optional[float] = Field(default=None, ge=0, le=1)
 
 
+class DesignByAlarrabRequest(BaseModel):
+    """Project record read by the seven senior discipline agents."""
+
+    project_name: Optional[str] = Field(default=None, max_length=200)
+    city: Optional[str] = Field(default=None, max_length=100)
+    office: Optional[str] = Field(default=None, max_length=200)
+    land_use: Optional[str] = Field(default=None, max_length=50)
+    building_type: Optional[str] = Field(default=None, max_length=50)
+    plot_w: Optional[float] = Field(default=None, gt=0, le=1000)
+    plot_d: Optional[float] = Field(default=None, gt=0, le=1000)
+    sb_f: Optional[float] = Field(default=None, ge=0, le=100)
+    sb_s: Optional[float] = Field(default=None, ge=0, le=100)
+    sb_r: Optional[float] = Field(default=None, ge=0, le=100)
+    floors: Optional[float] = Field(default=None, ge=1, le=60)
+    floor_h: Optional[float] = Field(default=None, ge=2, le=12)
+    units: Optional[float] = Field(default=None, ge=1, le=2000)
+    parking: Optional[float] = Field(default=None, ge=0, le=5000)
+
+
 class PermitReadinessRequest(BaseModel):
     documents: dict = Field(default_factory=dict)
 

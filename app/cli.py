@@ -4,6 +4,8 @@ Commands:
   serve        Run the API with uvicorn
   seed         Initialize DB and seed demo data
   assess FILE  Run a preliminary assessment from a JSON parameters file
+  design FILE  Run the seven senior agents over a project record (JSON)
+  agents       List the seven senior discipline agents
   rules        List the draft rule set
   resources    Show the regulatory resource catalog summary
   candidates   Generate rule candidates from the catalog
@@ -32,6 +34,10 @@ def main(argv=None) -> int:
     assess = sub.add_parser("assess", help="assess parameters from a JSON file")
     assess.add_argument("file", help="path to JSON file with project parameters")
 
+    design = sub.add_parser("design", help="run the seven senior agents (Design by Alarrab)")
+    design.add_argument("file", nargs="?", help="path to JSON file with the project record")
+
+    sub.add_parser("agents", help="list the seven senior discipline agents")
     sub.add_parser("rules", help="list draft rules")
     sub.add_parser("resources", help="regulatory catalog summary")
     sub.add_parser("candidates", help="generate rule candidates")
@@ -57,6 +63,22 @@ def main(argv=None) -> int:
         with open(args.file, encoding="utf-8") as fh:
             params = json.load(fh)
         _print(evaluate(params))
+        return 0
+
+    if args.command == "design":
+        from app.agents import run_design
+
+        params = {}
+        if args.file:
+            with open(args.file, encoding="utf-8") as fh:
+                params = json.load(fh)
+        _print(run_design(params))
+        return 0
+
+    if args.command == "agents":
+        from app.agents import list_agents
+
+        _print(list_agents())
         return 0
 
     if args.command == "rules":

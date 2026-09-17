@@ -808,6 +808,232 @@ function panelSources() {
     }).join("") + "</tbody></table></div>";
 }
 
+/* ==================== Design by Alarrab (seven senior agents) ==================== */
+
+/* The seven agents live on the server in app/agents/. The browser posts the
+ * project record to /v1/design/alarrab and renders the package it gets back,
+ * so the engineering logic has exactly one home. In demo mode the endpoint
+ * answers unauthenticated; where AUTH_REQUIRED is on it returns 401/403 and
+ * the panel asks for a token. */
+
+var D = { status: "idle", data: null, error: "", token: "" };
+
+var SEV_LABEL = {
+  high: ["حرج", "Critical"],
+  medium: ["متوسط", "Medium"],
+  low: ["منخفض", "Low"]
+};
+
+function sevClass(sev) {
+  return sev === "high" ? "st-fail" : (sev === "medium" ? "st-needs_review" : "st-pass");
+}
+
+function runAlarrab() {
+  var box = document.getElementById("alarrab-token");
+  if (box && box.value.trim()) { D.token = box.value.trim(); }
+
+  D.status = "running";
+  D.error = "";
+  render();
+
+  var headers = { "Content-Type": "application/json" };
+  if (D.token) { headers.Authorization = "Bearer " + D.token; }
+
+  var g = geom(), p = S.p;
+  fetch(API_BASE + "/v1/design/alarrab", {
+    method: "POST",
+    headers: headers,
+    body: JSON.stringify({
+      project_name: p.project_name, city: p.city, office: p.office,
+      land_use: p.land_use, building_type: p.building_type,
+      plot_w: g.pw, plot_d: g.pd, sb_f: g.sbF, sb_s: g.sbS, sb_r: g.sbR,
+      floors: g.floors, floor_h: g.fh, units: g.units, parking: g.parking
+    })
+  }).then(function (res) {
+    if (res.status === 401 || res.status === 403) {
+      D.status = "auth";
+      D.error = t("يتطلب هذا الإجراء صلاحية design:use. أدخل رمز وصول صالحًا.",
+        "This action requires the design:use permission. Enter a valid access token.");
+      render();
+      return null;
+    }
+    if (!res.ok) { throw new Error("HTTP " + res.status); }
+    return res.json();
+  }).then(function (data) {
+    if (!data) { return; }
+    D.data = data;
+    D.status = "done";
+    render();
+  }).catch(function (err) {
+    D.status = "error";
+    D.error = t("تعذّر تشغيل الوكلاء: ", "Could not run the agents: ") + err.message;
+    render();
+  });
+}
+
+function alarrabMetrics(metrics) {
+  return '<div class="tablewrap"><table><thead><tr><th>' + t("البند", "Item") + "</th><th>" +
+    t("القيمة", "Value") + "</th><th>" + t("الأساس", "Basis") + "</th></tr></thead><tbody>" +
+    metrics.map(function (m) {
+      var unit = m.unit ? " " + m.unit : "";
+      return "<tr><td>" + esc(t(m.key_ar, m.key_en)) + '</td><td class="mono">' +
+        esc(m.value) + esc(unit) + '</td><td class="detail">' + esc(m.basis) + "</td></tr>";
+    }).join("") + "</tbody></table></div>";
+}
+
+function alarrabList(title, items, cls) {
+  if (!items || !items.length) { return ""; }
+  return "<details class=\"agentfold\"><summary>" + esc(title) + " (" + items.length + ")</summary><ul class=\"" +
+    (cls || "") + "\">" + items.map(function (i) {
+      var extra = i.source ? ' <span class="src">— ' + esc(i.source) + "</span>" : "";
+      return "<li>" + esc(t(i.ar, i.en)) + extra + "</li>";
+    }).join("") + "</ul></details>";
+}
+
+function alarrabSchedule(agent) {
+  var rows = agent.schedule || [];
+  if (!rows.length) { return ""; }
+  var head, body;
+
+  if (agent.agent_id === "architecture") {
+    head = [t("الفراغ", "Space"), t("المساحة", "Area"), t("لكل دور", "Per floor")];
+    body = rows.map(function (r) {
+      return "<tr><td>" + esc(t(r.ar, r.en)) + '</td><td class="mono">' + esc(r.area_m2) +
+        ' m²</td><td class="mono">' + esc(r.per_floor_m2) + " m²</td></tr>";
+    });
+  } else if (agent.agent_id === "interior") {
+    head = [t("الفراغ", "Space"), t("الأرضيات", "Floor"), t("الجدران", "Walls"), t("الأسقف", "Ceiling")];
+    body = rows.map(function (r) {
+      return "<tr><td>" + esc(t(r.ar, r.en)) + "</td><td>" + esc(t(r.floor_ar, r.floor_en)) +
+        "</td><td>" + esc(t(r.wall_ar, r.wall_en)) + "</td><td>" + esc(t(r.ceiling_ar, r.ceiling_en)) + "</td></tr>";
+    });
+  } else if (agent.agent_id === "quantity") {
+    head = [t("العنصر", "Element"), t("الكمية", "Quantity"), t("السعر", "Rate"), t("التكلفة", "Cost")];
+    body = rows.map(function (r) {
+      return "<tr><td>" + esc(t(r.ar, r.en)) + '</td><td class="mono">' + esc(r.quantity) +
+        '</td><td class="mono">' + esc(r.rate_low) + "-" + esc(r.rate_high) +
+        '</td><td class="mono">' + Number(r.cost_low).toLocaleString("en") + "-" +
+        Number(r.cost_high).toLocaleString("en") + "</td></tr>";
+    });
+  } else if (agent.agent_id === "electrical") {
+    head = [t("الفراغ", "Space"), t("شدة الإضاءة", "Illuminance")];
+    body = rows.map(function (r) {
+      return "<tr><td>" + esc(t(r.ar, r.en)) + '</td><td class="mono">' + esc(r.lux) + " lux</td></tr>";
+    });
+  } else if (agent.agent_id === "regulation") {
+    head = [t("التخصص", "Discipline"), t("المرجع", "Code part"), t("الجهة", "Authority")];
+    body = rows.map(function (r) {
+      return "<tr><td>" + esc(t(r.discipline_ar, r.discipline_en)) + '</td><td class="mono">' +
+        esc(r.code_part) + "</td><td>" + esc(t(r.authority_ar, r.authority_en)) + "</td></tr>";
+    });
+  } else {
+    return "";
+  }
+
+  return "<details class=\"agentfold\"><summary>" + t("الجدول التفصيلي", "Detailed schedule") +
+    " (" + rows.length + ")</summary><div class=\"tablewrap\"><table><thead><tr><th>" +
+    head.join("</th><th>") + "</th></tr></thead><tbody>" + body.join("") + "</tbody></table></div></details>";
+}
+
+function alarrabAgent(agent, index) {
+  var recs = agent.recommendations || [];
+  return '<section class="agentcard">' +
+    '<header class="agenthead"><span class="agentno">' + String(index + 1).padStart(2, "0") + "</span>" +
+    "<div><h3>" + esc(t(agent.name_ar, agent.name_en)) + "</h3>" +
+    '<p class="agentrole">' + esc(t(agent.role_ar, agent.role_en)) + "</p></div></header>" +
+    '<p class="agentsum">' + esc(t(agent.summary_ar, agent.summary_en)) + "</p>" +
+    alarrabMetrics(agent.metrics || []) +
+    (recs.length ? '<div class="agentrecs">' + recs.map(function (r) {
+      return '<div class="suggest"><span class="n ' + sevClass(r.priority) + '">' +
+        esc(t(SEV_LABEL[r.priority][0], SEV_LABEL[r.priority][1])) + "</span><span>" +
+        esc(t(r.ar, r.en)) + "</span></div>";
+    }).join("") + "</div>" : "") +
+    alarrabSchedule(agent) +
+    alarrabList(t("الافتراضات", "Assumptions"), agent.assumptions) +
+    alarrabList(t("يحتاج تحقق", "Needs verification"), agent.verify) +
+    "</section>";
+}
+
+function panelAlarrab() {
+  var head = '<div class="rowhead"><h2 class="section">' + t("التصميم بواسطة العرّاب", "Design by Alarrab") +
+    "</h2></div>" +
+    '<p class="hint">' + t(
+      "سبعة وكلاء بخبرة مهندس أول يعملون على بيانات المشروع بالتتابع: معماري، إنشائي، ميكانيكي، كهربائي، تصميم داخلي، مساحة كميات، ومراجعة نظامية. ثم يُفحص تعارض المخرجات بين التخصصات.",
+      "Seven senior-level agents work through the project record in sequence — architecture, structural, mechanical, electrical, interior, quantity surveying and regulation review — and their outputs are then cross-checked for clashes between disciplines.") +
+    "</p>";
+
+  var button = '<div class="formactions"><button class="primary" id="run-alarrab" type="button"' +
+    (D.status === "running" ? " disabled" : "") + ">" +
+    (D.status === "running" ? t("جارٍ التشغيل…", "Running…") :
+      (D.data ? t("إعادة تشغيل الوكلاء", "Re-run the agents") : t("شغّل الوكلاء السبعة", "Run the seven agents"))) +
+    '</button><span class="actionhint">' +
+    t("يعمل على بيانات تبويب المشروع الحالية.", "Runs against the current Project tab values.") + "</span></div>";
+
+  if (D.status === "auth") {
+    button += '<div class="card authbox"><p>' + esc(D.error) + "</p>" +
+      '<div class="grid"><label>' + t("رمز الوصول", "Access token") +
+      '<input type="password" id="alarrab-token" autocomplete="off" placeholder="Bearer token"></label></div>' +
+      '<p class="footnote">' + t(
+        "يمكن الحصول على الرمز من نقطة /v1/auth/token. لا يُحفظ الرمز إلا في الذاكرة أثناء الجلسة.",
+        "Get a token from /v1/auth/token. It is held in memory for this session only and never stored.") + "</p></div>";
+  } else if (D.status === "error") {
+    button += '<div class="note fail"><strong>' + t("خطأ", "Error") + ":</strong> " + esc(D.error) + "</div>";
+  }
+
+  if (!D.data) {
+    var roster = [
+      ["مهندس معماري أول", "Senior Architecture Engineer", "الكتلة والبرنامج والمخارج", "Massing, program, egress"],
+      ["مهندس إنشائي أول", "Senior Structural Engineer", "النظام الإنشائي والأساسات", "Framing system, foundations"],
+      ["مهندس ميكانيكي أول", "Senior Mechanical Engineer", "التكييف والسباكة والحريق", "HVAC, plumbing, fire"],
+      ["مهندس كهربائي أول", "Senior Electrical Engineer", "الأحمال والتغذية والتوزيع", "Loads, service, distribution"],
+      ["مصمم داخلي أول", "Senior Interior Designer", "الارتفاعات والتشطيبات", "Clear heights, finishes"],
+      ["مساح كميات أول", "Senior Quantity Surveyor", "الكميات وخطة التكلفة", "Quantities, cost plan"],
+      ["أخصائي مراجعة نظامية أول", "Senior Regulation Review Specialist", "الفحص النظامي والجهات", "Rule checks, authorities"]
+    ];
+    return head + button + '<div class="agentgrid">' + roster.map(function (r, i) {
+      return '<div class="agentchip"><span class="agentno">' + String(i + 1).padStart(2, "0") + "</span>" +
+        "<div><strong>" + esc(t(r[0], r[1])) + "</strong><span>" + esc(t(r[2], r[3])) + "</span></div></div>";
+    }).join("") + "</div>";
+  }
+
+  var d = D.data, h = d.headline, co = d.coordination;
+  /* Units live in the labels so every value is a pure LTR numeral. Mixing
+   * digits and units inside one RTL cell reorders them visually. */
+  var cards = [
+    [t("إجمالي المسطحات (م²)", "Gross floor area (m²)"), Number(h.gfa_m2).toLocaleString("en")],
+    [t("النتيجة الأولية (من ١٠٠)", "Preliminary score (of 100)"), String(h.preliminary_score)],
+    [t("نطاق التكلفة (مليون ر.س)", "Cost range (SAR million)"),
+      (h.cost_low_sar / 1e6).toFixed(2) + "-" + (h.cost_high_sar / 1e6).toFixed(2)],
+    [t("المدة التقديرية (شهر)", "Indicative period (months)"), String(h.months)],
+    [t("تعارضات التنسيق", "Coordination issues"), String(h.coordination_issues)],
+    [t("بنود التحقق", "Verification items"), String(h.verification_items)]
+  ];
+
+  var coordination = '<h3 class="section sub">' + t("سجل التنسيق بين التخصصات", "Cross-discipline coordination register") +
+    "</h3>" + (co.total === 0 ?
+      '<div class="note"><strong>' + t("لا تعارضات", "No clashes") + "</strong> — " +
+      t("لم يُرصد تعارض بين مخرجات التخصصات لهذه المعطيات.",
+        "No clash was detected between the disciplines for these inputs.") + "</div>" :
+      co.issues.map(function (i) {
+        return '<div class="note ' + (i.severity === "high" ? "fail" : (i.severity === "medium" ? "warn" : "")) + '">' +
+          '<div class="issuehead"><span class="' + sevClass(i.severity) + '">' +
+          esc(t(SEV_LABEL[i.severity][0], SEV_LABEL[i.severity][1])) + '</span><span class="issuedisc">' +
+          esc(i.disciplines.join(" · ")) + "</span></div>" +
+          "<p>" + esc(t(i.ar, i.en)) + "</p>" +
+          '<p class="issueact"><strong>' + t("الإجراء", "Action") + ":</strong> " +
+          esc(t(i.action_ar, i.action_en)) + "</p></div>";
+      }).join(""));
+
+  return head + button +
+    '<div class="cards headline">' + cards.map(function (c) {
+      return '<div class="metric"><div class="k">' + esc(c[0]) + '</div><div class="v">' + esc(c[1]) + "</div></div>";
+    }).join("") + "</div>" +
+    coordination +
+    '<h3 class="section sub">' + t("تقارير التخصصات", "Discipline reports") + "</h3>" +
+    d.agents.map(alarrabAgent).join("") +
+    '<p class="footnote">' + esc(t(d.note_ar, d.note_en)) + "</p>";
+}
+
 /* ============================ render + events ============================ */
 
 var TABS = [
@@ -815,6 +1041,7 @@ var TABS = [
   ["drawings", "المخططات", "Drawings"],
   ["review", "المراجعة الأولية", "Review"],
   ["permit", "جاهزية الرخصة", "Permit"],
+  ["alarrab", "التصميم بواسطة العرّاب", "Design by Alarrab"],
   ["assistant", "مساعد التصميم", "Assistant"],
   ["sources", "المصادر", "Sources"]
 ];
@@ -832,13 +1059,15 @@ function render() {
   }).join("");
 
   var panel = { project: panelProject, drawings: panelDrawings, review: panelReview,
-    permit: panelPermit, assistant: panelAssistant, sources: panelSources }[S.tab] || panelProject;
+    permit: panelPermit, alarrab: panelAlarrab, assistant: panelAssistant,
+    sources: panelSources }[S.tab] || panelProject;
   document.getElementById("main").innerHTML = panel();
 }
 
 function onClick(ev) {
-  var el = ev.target.closest("[data-tab], [data-sheet], [data-go], #print-sheet, #lang-toggle");
+  var el = ev.target.closest("[data-tab], [data-sheet], [data-go], #print-sheet, #lang-toggle, #run-alarrab");
   if (!el) { return; }
+  if (el.id === "run-alarrab") { runAlarrab(); return; }
   if (el.id === "lang-toggle") { S.lang = S.lang === "ar" ? "en" : "ar"; render(); return; }
   if (el.id === "print-sheet") { window.print(); return; }
   if (el.dataset.tab) { S.tab = el.dataset.tab; render(); return; }

@@ -158,8 +158,40 @@ class TestApiEndpoints(unittest.TestCase):
             "/v1/regulatory-resources/summary", "/v1/rule-candidates/from-resources",
             "/v1/rule-candidates/review-package", "/v1/rule-candidates/review/validate",
             "/v1/rule-candidates/review/export-draft-rules", "/v1/production/readiness",
+            "/v1/design/alarrab", "/v1/design/alarrab/agents",
         ):
             self.assertIn(endpoint, paths, f"missing endpoint {endpoint}")
+
+    def test_alarrab_agent_roster(self):
+        response = self.client.get("/v1/design/alarrab/agents")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["count"], 7)
+        self.assertFalse(body["official_basis"])
+
+    def test_alarrab_design_runs_all_seven_agents(self):
+        response = self.client.post("/v1/design/alarrab", json={
+            "project_name": "API villa", "city": "الرياض", "building_type": "villa",
+            "plot_w": 20, "plot_d": 25, "sb_f": 3, "sb_s": 2, "sb_r": 2.5,
+            "floors": 2, "floor_h": 3.2, "units": 1, "parking": 2,
+        })
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(len(body["agents"]), 7)
+        self.assertIn("coordination", body)
+        self.assertIn("disclaimer", body)
+        self.assertFalse(body["official_basis"])
+        self.assertGreater(body["headline"]["gfa_m2"], 0)
+
+    def test_alarrab_design_accepts_an_empty_body(self):
+        response = self.client.post("/v1/design/alarrab", json={})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()["agents"]), 7)
+
+    def test_alarrab_design_rejects_out_of_range_input(self):
+        for payload in ({"plot_w": -5}, {"floors": 0}, {"floors": 500}, {"floor_h": 0.5}):
+            response = self.client.post("/v1/design/alarrab", json=payload)
+            self.assertEqual(response.status_code, 422, payload)
 
 
 if __name__ == "__main__":
