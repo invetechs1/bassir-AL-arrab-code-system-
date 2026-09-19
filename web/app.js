@@ -506,27 +506,35 @@ function drawWindow(r, w, m, ox, oy, W, D) {
  * Each piece is drawn as a recognisable symbol and carries a tag number so
  * the interior sheets can key a schedule to it. FF_USED collects the codes
  * used while a sheet is being built. */
+/* Standard component library. The tag is the bubble on the plan, the code is
+ * the catalogue reference carried into the schedule and into the 3D model in
+ * tools/render/library.py, so a drawing, a schedule and a visual all name the
+ * same component. Keep the codes in step with CATALOGUE there. */
 var FF = {
-  bench:    ["01", "جلسة مجلس عربي", "Arabic majlis seating"],
-  ctable:   ["02", "طاولة وسط", "Coffee table"],
-  sofa:     ["03", "كنبة ٣ مقاعد", "Three-seat sofa"],
-  armchair: ["04", "كرسي مفرد", "Armchair"],
-  tv:       ["05", "وحدة تلفزيون", "TV unit"],
-  rug:      ["06", "سجادة", "Rug"],
-  dining:   ["07", "طاولة طعام ٤ كراسي", "Dining table, 4 chairs"],
-  counter:  ["08", "كاونتر مطبخ", "Kitchen counter"],
-  sink:     ["09", "حوض جلي", "Kitchen sink"],
-  hob:      ["10", "موقد وشفاط", "Hob and hood"],
-  fridge:   ["11", "ثلاجة", "Refrigerator"],
-  bed2:     ["12", "سرير مزدوج ١٨٠×٢٠٠", "Double bed 180x200"],
-  bed1:     ["13", "سرير مفرد ١٢٠×٢٠٠", "Single bed 120x200"],
-  night:    ["14", "كومودينو", "Bedside table"],
-  wardrobe: ["15", "دولاب ملابس", "Wardrobe"],
-  desk:     ["16", "مكتب دراسة", "Study desk"],
-  wc:       ["17", "مرحاض", "WC pan"],
-  basin:    ["18", "مغسلة", "Wash basin"],
-  shower:   ["19", "دش", "Shower"],
-  console:  ["20", "كونسول مدخل", "Entry console"]
+  bench:    ["01", "MAJ-201", "جلسة مجلس عربي", "Arabic majlis seating", "مجرى × ٨٠٠ × ٤٢٠"],
+  ctable:   ["02", "TBL-401", "طاولة وسط", "Coffee table", "١١٠٠ × ٥٥٠ × ٤٠٠"],
+  sofa:     ["03", "SOF-301", "كنبة ٣ مقاعد", "Three-seat sofa", "٢٤٠٠ × ٩٠٠ × ٧٢٠"],
+  armchair: ["04", "ARM-101", "كرسي مفرد", "Armchair", "٧٥٠ × ٧٨٠ × ٧٤٠"],
+  tv:       ["05", "TVU-402", "وحدة تلفزيون", "TV unit", "١٨٠٠ × ٤٢٠ × ٥٠٠"],
+  rug:      ["06", "RUG-901", "سجادة", "Rug", "حسب التوزيع"],
+  dining:   ["07", "TBL-501", "طاولة طعام", "Dining table", "١٠٠٠ × ٧٠٠ × ٧٥٠"],
+  chair:    ["07A", "CHR-501", "كرسي طعام", "Dining chair", "٤٥٠ × ٤٥٠ × ٩٥٠"],
+  counter:  ["08", "KIT-701", "قواعد مطبخ", "Kitchen base units", "مجرى × ٦٢٠ × ٩٠٠"],
+  upper:    ["08A", "KIT-702", "وحدات علوية", "Kitchen wall units", "مجرى × ٣٥٠ × ٧٢٠"],
+  sink:     ["09", "SNK-704", "حوض جلي ومخلط", "Sink and mixer", "٥٦٠ × ٤٢٠"],
+  hob:      ["10", "HOB-705", "موقد غاز", "Gas hob", "٦٠٠ × ٥٢٠"],
+  fridge:   ["11", "FRG-706", "ثلاجة", "Refrigerator", "٦٢٠ × ٧٠٠ × ١٨٠٠"],
+  bed2:     ["12", "BED-601", "سرير مزدوج", "Double bed", "١٨٠٠ × ٢٠٠٠ × ١١٠٠"],
+  bed1:     ["13", "BED-602", "سرير مفرد", "Single bed", "١٢٠٠ × ٢٠٠٠ × ١١٠٠"],
+  night:    ["14", "NIG-603", "كومودينو", "Bedside cabinet", "٤٥٠ × ٤٥٠ × ٥٠٠"],
+  wardrobe: ["15", "WRD-604", "دولاب ملابس", "Wardrobe", "٢٠٠٠ × ٦٠٠ × ٢٠٠٠"],
+  desk:     ["16", "DSK-605", "مكتب دراسة", "Study desk", "١٠٠٠ × ٥٥٠ × ٧٥٠"],
+  wc:       ["17", "WCP-801", "مرحاض", "WC pan and cistern", "٣٧٠ × ٦٠٠ × ٨٢٠"],
+  basin:    ["18", "BAS-802", "مغسلة وخزانة", "Basin and vanity", "٦٠٠ × ٤٥٠ × ٨٥٠"],
+  shower:   ["19", "SHW-803", "دش وقاطع زجاجي", "Shower and screen", "٩٠٠ × ٩٠٠ × ٢٠٠٠"],
+  console:  ["20", "CON-403", "كونسول مدخل", "Entry console", "١١٠٠ × ٣٦٠ × ٨٥٠"],
+  pendant:  ["21", "LGT-903", "مدلاة", "Pendant light", "٤٠٠ قطر"],
+  curtain:  ["22", "CUR-904", "ستارة", "Curtain panel", "حسب الفتحة"]
 };
 var FF_USED = [];
 function ffUse(k) { if (FF[k] && FF_USED.indexOf(k) < 0) { FF_USED.push(k); } }
@@ -1276,16 +1284,23 @@ function bodyInterior(m, level) {
   FF_USED = [];
   out += drawPlan(m, level, { finishes: true, tags: true });
 
-  // furniture schedule keyed to the tag numbers on the plan
-  var x = m.W - 312, y = 120, rowH = 15.5;
-  out += DRAW.rc(x - 12, y - 24, 302, 34 + FF_USED.length * rowH,
+  // furniture schedule: bubble on the plan, catalogue code, name, nominal size
+  var x = m.W - 356, y = 120, rowH = 16.5;
+  out += DRAW.rc(x - 12, y - 30, 346, 44 + FF_USED.length * rowH,
     { fill: "#fbfaf8", sw: 0.6, stroke: THIN });
-  out += DRAW.tx(x, y - 10, t("جدول الفرش", "FURNITURE SCHEDULE"), { size: 8, fill: THIN, ls: "1px" });
+  out += DRAW.tx(x, y - 16, t("جدول الفرش — مكتبة المكوّنات المعيارية",
+    "FURNITURE SCHEDULE — STANDARD COMPONENT LIBRARY"), { size: 7.6, fill: THIN, ls: ".8px" });
+  [[x + 22, t("الرمز", "CODE")], [x + 86, t("المكوّن", "COMPONENT")],
+   [x + 246, t("المقاس الاسمي", "NOMINAL")]].forEach(function (c) {
+    out += DRAW.tx(c[0], y - 3, c[1], { size: 6.4, fill: THIN, ls: ".5px" });
+  });
   FF_USED.forEach(function (k, i) {
-    var yy = y + 8 + i * rowH, f = FF[k];
+    var yy = y + 13 + i * rowH, f = FF[k];
     out += '<circle cx="' + f2(x + 7) + '" cy="' + f2(yy - 3) + '" r="6" fill="#fff" stroke="#0f6b54" stroke-width="0.7"/>';
-    out += DRAW.tx(x + 7, yy, f[0], { size: 6, anchor: "middle", fill: "#0f6b54", weight: 600 });
-    out += DRAW.tx(x + 24, yy, t(f[1], f[2]), { size: 7.6, mono: false, rtl: true });
+    out += DRAW.tx(x + 7, yy, f[0], { size: 5.8, anchor: "middle", fill: "#0f6b54", weight: 600 });
+    out += DRAW.tx(x + 22, yy, f[1], { size: 6.8, fill: "#0f6b54", weight: 600 });
+    out += DRAW.tx(x + 86, yy, t(f[2], f[3]), { size: 7.4, mono: false, rtl: true });
+    out += DRAW.tx(x + 246, yy, f[4], { size: 6.6, fill: THIN, rtl: true });
   });
 
   var lvAr = level === "ground" ? "الدور الأرضي" : "الدور الأول";

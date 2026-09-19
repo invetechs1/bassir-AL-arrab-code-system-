@@ -112,130 +112,27 @@ def rbox(x, y, w, d, z0, z1, r=0.06):
             f"translate <{cx:.3f},{cy:.3f},{cz:.3f}> }}")
 
 
-# ------------------------------------------------------- detailed furniture
-# The solids coming out of the drawing engine are massing boxes. Rendered
-# literally a chair is a slab and a wardrobe is a block, so each solid is
-# classified by (kind, height, footprint) and rebuilt as real geometry.
+# ----------------------------------------------------- library placement
+# The drawing engine emits massing boxes. Each one is matched to a component
+# in the standard library and rebuilt from it, so the render, the plan tag and
+# the schedule all name the same catalogue entry.
 
-def legs(x, y, w, d, top, sec=0.045, tex="T_Wood", inset=0.06):
-    out = []
-    for lx in (x + inset, x + w - inset - sec):
-        for ly in (y + inset, y + d - inset - sec):
-            out.append((box(lx, ly, sec, sec, 0, top), tex))
-    return out
+import library as LIB
 
 
-def chair(b, away=None):
-    """Seat slab on four legs, with the back turned away from `away`.
-
-    `away` is the point the chair faces (the table centre); without it every
-    chair round a table ends up with its back on the same side.
-    """
-    x, y, w, d = b["x"], b["y"], b["w"], b["d"]
-    seat_h, out = 0.44, []
-    out += legs(x, y, w, d, seat_h, 0.035)
-    out.append((box(x, y, w, d, seat_h, seat_h + 0.05), "T_Wood"))
-    cx, cy = x + w / 2, y + d / 2
-    ax, ay = away if away else (cx, cy - 1)
-    if abs(cx - ax) > abs(cy - ay):
-        far = x if cx < ax else x + w - 0.045
-        out.append((box(far, y + 0.02, 0.045, d - 0.04, seat_h, seat_h + 0.46), "T_Wood"))
-    else:
-        far = y if cy < ay else y + d - 0.045
-        out.append((box(x + 0.02, far, w - 0.04, 0.045, seat_h, seat_h + 0.46), "T_Wood"))
-    return out
+def room_of(b, rooms):
+    cx, cy = b["x"] + b["w"] / 2, b["y"] + b["d"] / 2
+    for r in rooms:
+        if r["x"] <= cx <= r["x"] + r["w"] and r["y"] <= cy <= r["y"] + r["h"]:
+            return r
+    return None
 
 
-def table(b, thickness=0.04):
-    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
-    out = legs(x, y, w, d, h - thickness, 0.055)
-    out.append((box(x - 0.02, y - 0.02, w + 0.04, d + 0.04, h - thickness, h), "T_Wood"))
-    return out
+def _centre(r):
+    return (r["x"] + r["w"] / 2, r["y"] + r["h"] / 2)
 
 
-def cabinet(b, tex="T_Wood", doors=None, handle=True, plinth=0.09):
-    """Carcass with door panels set back behind a reveal, plus handles."""
-    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
-    out = [(box(x, y, w, d, plinth, h), tex)]
-    if plinth:
-        out.append((box(x + 0.03, y + 0.03, w - 0.06, d - 0.06, 0, plinth), "T_Wall"))
-    horiz = w >= d
-    span = w if horiz else d
-    n = doors or max(1, int(round(span / 0.55)))
-    for i in range(n):
-        f0, f1 = i / n, (i + 1) / n
-        if horiz:
-            dx0, dx1 = x + w * f0 + 0.008, x + w * f1 - 0.008
-            out.append((box(dx0, y + d - 0.018, dx1 - dx0, 0.018, plinth + 0.012, h - 0.012), "T_CabDoor"))
-            if handle:
-                hx = (dx0 + dx1) / 2 - 0.055
-                out.append((box(hx, y + d - 0.034, 0.11, 0.016, h - 0.14, h - 0.115), "T_Metal"))
-        else:
-            dy0, dy1 = y + d * f0 + 0.008, y + d * f1 - 0.008
-            out.append((box(x + w - 0.018, dy0, 0.018, dy1 - dy0, plinth + 0.012, h - 0.012), "T_CabDoor"))
-            if handle:
-                hy = (dy0 + dy1) / 2 - 0.055
-                out.append((box(x + w - 0.034, hy, 0.016, 0.11, h - 0.14, h - 0.115), "T_Metal"))
-    return out
-
-
-def worktop(b):
-    """Base units with a stone worktop overhanging the doors."""
-    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
-    out = cabinet({"x": x, "y": y, "w": w, "d": d, "h": h - 0.04}, tex="T_Wall")
-    out.append((box(x - 0.015, y - 0.02, w + 0.03, d + 0.04, h - 0.04, h), "T_Stone"))
-    return out
-
-
-def bed(b):
-    """Mattress, duvet with a turned-back fold, and two pillows."""
-    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
-    out = [(box(x + 0.04, y + 0.04, w - 0.08, d - 0.08, 0, 0.26), "T_Wood")]          # base
-    out.append((rbox(x, y, w, d, 0.26, h, 0.05), "T_Pillow"))                          # mattress
-    out.append((rbox(x - 0.02, y + d * 0.30, w + 0.04, d * 0.70, h - 0.02, h + 0.11, 0.06), "T_Duvet"))
-    out.append((rbox(x - 0.02, y + d * 0.30, w + 0.04, 0.16, h + 0.02, h + 0.13, 0.05), "T_Duvet"))
-    pw = (w - 0.14) / 2
-    for i in (0, 1):
-        px = x + 0.045 + i * (pw + 0.05)
-        out.append((rbox(px, y + 0.07, pw, d * 0.17, h, h + 0.13, 0.055), "T_Pillow"))
-    return out
-
-
-def sofa_seat(b):
-    """Upholstered base with separate seat cushions."""
-    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
-    out = [(rbox(x, y, w, d, 0.10, h - 0.10, 0.05), "T_FabricGrey")]
-    out += legs(x, y, w, d, 0.10, 0.04, "T_Wood", 0.05)
-    n = max(1, int(round(w / 0.75))) if w >= d else max(1, int(round(d / 0.75)))
-    for i in range(n):
-        f0, f1 = i / n, (i + 1) / n
-        if w >= d:
-            cx0, cx1 = x + w * f0 + 0.012, x + w * f1 - 0.012
-            out.append((rbox(cx0, y + 0.03, cx1 - cx0, d - 0.06, h - 0.10, h + 0.03, 0.05), "T_FabricGrey"))
-        else:
-            cy0, cy1 = y + d * f0 + 0.012, y + d * f1 - 0.012
-            out.append((rbox(x + 0.03, cy0, w - 0.06, cy1 - cy0, h - 0.10, h + 0.03, 0.05), "T_FabricGrey"))
-    return out
-
-
-def bench(b):
-    """Majlis seat with individual cushions."""
-    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
-    out = [(box(x, y, w, d, 0, h - 0.10), "T_Wood")]
-    n = max(1, int(round((w if w >= d else d) / 0.62)))
-    for i in range(n):
-        f0, f1 = i / n, (i + 1) / n
-        if w >= d:
-            a, bb = x + w * f0 + 0.012, x + w * f1 - 0.012
-            out.append((rbox(a, y + 0.02, bb - a, d - 0.04, h - 0.10, h + 0.04, 0.05), "T_FabricGreen"))
-        else:
-            a, bb = y + d * f0 + 0.012, y + d * f1 - 0.012
-            out.append((rbox(x + 0.02, a, w - 0.04, bb - a, h - 0.10, h + 0.04, 0.05), "T_FabricGreen"))
-    return out
-
-
-def _table_near(b, solids):
-    """Centre of the closest tabletop, so chairs can be turned to face it."""
+def _nearest_table(b, solids):
     best = None
     for o in solids:
         if o["kind"] != "wood" or not (0.60 <= round(o["h"], 2) <= 0.90):
@@ -249,38 +146,90 @@ def _table_near(b, solids):
     return (best[1], best[2]) if best else None
 
 
-def detail_solid(b, solids=()):
-    """Return [(geometry, texture)] for one massing box, or None to fall back.
+def kitchen_run(b, r):
+    """A counter run also carries the splashback, wall units, sink and hob."""
+    face = LIB.facing_side(b["x"], b["y"], b["w"], b["d"], _centre(r))
+    out = LIB.base_units(b["x"], b["y"], b["w"], b["d"], face)
+    codes = ["KIT-701"]
+    horiz = b["w"] >= b["d"]
+    run = b["w"] if horiz else b["d"]
+    if run > 1.4:                      # only the main run gets uppers and appliances
+        out += LIB.splashback(b["x"], b["y"], b["w"], b["d"], face)
+        codes.append("KIT-703")
+        if horiz:
+            out += LIB.wall_units(b["x"], b["y"] + (b["d"] - 0.35 if face == "s" else 0),
+                                  b["w"] * 0.62, 0.35, face)
+        else:
+            out += LIB.wall_units(b["x"] + (b["w"] - 0.35 if face == "e" else 0), b["y"],
+                                  0.35, b["d"] * 0.62, face)
+        codes.append("KIT-702")
+        cx, cy = b["x"] + b["w"] / 2, b["y"] + b["d"] / 2
+        if horiz:
+            out += LIB.sink(b["x"] + b["w"] * 0.30, cy)
+            out += LIB.hob(b["x"] + b["w"] * 0.68, cy)
+        else:
+            out += LIB.sink(cx, b["y"] + b["d"] * 0.30)
+            out += LIB.hob(cx, b["y"] + b["d"] * 0.68)
+        codes += ["SNK-704", "HOB-705"]
+    return codes, out
 
-    Ordering matters: a bed and a sofa base are both soft solids about half a
-    metre tall, and a chair seat and a bedside table are both low wood boxes.
-    """
+
+def place(b, rooms, solids):
+    """Return (catalogue codes, [(geometry, texture)]) or None to fall back."""
     k, h = b["kind"], round(b["h"], 2)
-    foot = b["w"] * b["d"]
-    thin = min(b["w"], b["d"]) < 0.12
+    x, y, w, d, z = b["x"], b["y"], b["w"], b["d"], b["z"]
+    foot, thin = w * d, min(w, d) < 0.12
+    r = room_of(b, rooms)
+    ctr = _centre(r) if r else (x, y)
+    face = LIB.facing_side(x, y, w, d, ctr)
+    rtype = r["type"] if r else ""
 
     if k == "wood":
-        if 0.85 <= h <= 0.92 and thin:          return []            # chair back, drawn by chair()
-        if h <= 0.47 and foot <= 0.16:          return chair(b, _table_near(b, solids))
-        if h >= 1.5:                            return cabinet(b, doors=max(2, int(b["w"] / 0.6)))
-        if 0.90 <= h <= 1.05 and thin:          return [(rbox(b["x"], b["y"], b["w"], b["d"],
-                                                              b["z"], b["z"] + b["h"], 0.03), "T_Wood")]
-        if 0.44 <= h <= 0.56 and foot <= 0.32:  return cabinet(b, plinth=0.04, doors=1)
-        if 0.44 <= h <= 0.56:                   return cabinet(b, plinth=0.05)
-        if 0.60 <= h <= 0.90:                   return table(b)
-        if h <= 0.44:                           return table(b, 0.035)
+        if 0.85 <= h <= 0.92 and thin:        return [], []          # chair back, in the chair
+        if 0.90 <= h <= 1.05 and thin:        return [], []          # headboard, in the bed
+        if h <= 0.47 and foot <= 0.16:
+            return ["CHR-501"], LIB.dining_chair(x, y, w, d, _nearest_table(b, solids))
+        if h >= 1.5:                          return ["WRD-604"], LIB.wardrobe(x, y, w, d, h, face)
+        if 0.44 <= h <= 0.56 and foot <= 0.32:
+            return ["NIG-603"], LIB.bedside(x, y, w, d, h, face)
+        if 0.44 <= h <= 0.56:                 return ["TVU-402"], LIB.tv_unit(x, y, w, d, h, face)
+        if 0.80 <= h <= 0.92:                 return ["CON-403"], LIB.console(x, y, w, d, h)
+        if 0.60 <= h <= 0.92:
+            if rtype in ("bed", "bed_master"):
+                return ["DSK-605"], LIB.desk(x, y, w, d, h)
+            return ["TBL-501"], LIB.dining_table(x, y, w, d, h)
+        if h <= 0.44:                         return ["TBL-401"], LIB.coffee_table(x, y, w, d, h)
         return None
 
     if k == "soft":
-        if 0.47 <= h <= 0.53 and foot >= 1.5:   return bed(b)
-        if h <= 0.46 and foot >= 0.9:           return sofa_seat(b)
-        return None
+        if 0.47 <= h <= 0.53 and foot >= 1.5:
+            head = LIB.facing_side(x, y, w, d, (ctr[0], ctr[1] - 99))   # head to the far wall
+            # a headboard in front of glazing blocks the window, so cap it
+            # below the sill when the head wall carries one
+            win_sides = {ww["side"] for ww in (r.get("win") or [])} if r else set()
+            hb = 0.80 if head in win_sides else 1.10
+            return (["BED-601" if w >= 1.6 else "BED-602"],
+                    LIB.bed(x, y, w, d, head, double=w >= 1.6, hb_max=hb))
+        if h <= 0.46 and foot >= 0.9:
+            return ["SOF-301"], LIB.sofa(x, y, w, d, face)
+        if h <= 0.5 and foot < 0.9:           return ["ARM-101"], LIB.armchair(x, y, w, d, face)
+        return [], []                          # sofa arms and back, built by the sofa
 
-    if k == "seat" and h <= 0.5:                return bench(b)
-    if k == "counter":                          return worktop(b)
-    if k == "white" and h >= 1.5:               return cabinet(b, tex="T_White", doors=1)
-    # pillow band sits on the mattress; a shower tray is on the floor
-    if k == "white" and h <= 0.14 and b["z"] > 0.3: return []        # drawn by bed()
+    if k == "seat":
+        if h <= 0.5:
+            wall = {"n": "s", "s": "n", "e": "w", "w": "e"}[face]
+            return ["MAJ-201"], LIB.majlis_bench(x, y, w, d, wall)
+        return [], []                          # bench backs, built by the bench
+
+    if k == "counter" and r:                   return kitchen_run(b, r)
+    if k == "white":
+        if h >= 1.5:                           return ["FRG-706"], LIB.fridge(x, y, w, d, h, face)
+        if h <= 0.10:                          return ["SHW-803"], LIB.shower(x, y, w, d)
+        if h <= 0.14 and z > 0.3:              return [], []          # pillow band, in the bed
+        if 0.25 <= h <= 0.35:                  return ["BAS-802"], LIB.basin(x, y, w, d)
+        if 0.38 <= h <= 0.50:                  return ["WCP-801"], LIB.wc_pan(x, y, w, d, face)
+        return [], []                          # cistern, built with the pan
+    if k == "green":                           return ["RUG-901"], LIB.rug(x, y, w, d)
     return None
 
 
@@ -423,7 +372,8 @@ light_source { <26, 15, 24> color rgb <0.07,0.08,0.10>
 
 def emit(level, cam, out_path, rad=""):
     rooms = G[level]["rooms"]
-    L = [HEADER.replace("RAD_CACHE", rad)]
+    L = [HEADER.replace("RAD_CACHE", rad), LIB.MATERIALS]
+    used_codes = []
     L.append(cam)
 
     # floor slab and ceiling
@@ -446,12 +396,15 @@ def emit(level, cam, out_path, rad=""):
     for x, y, w, d, z0, z1, side in glass(level):
         L.append(f"object {{ {box(x, y, w, d, z0, z1)} texture {{ T_Glass }} interior {{ I_Glass }} }}")
 
-    # furniture, rebuilt as real geometry where a massing box would read badly
+    # furniture, rebuilt from the standard component library
     for b in G[level]["furn"]:
-        pieces = detail_solid(b, G[level]["furn"])
-        if pieces is not None:
+        res = place(b, rooms, G[level]["furn"])
+        if res is not None:
+            codes, pieces = res
+            used_codes.extend(codes)
             for geo, tex in pieces:
-                L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+                if geo:
+                    L.append(f"object {{ {geo} texture {{ {tex} }} }}")
             continue
         tex = TEX.get(b["kind"], "T_Wall")
         z0, z1 = b["z"], b["z"] + b["h"]
@@ -472,90 +425,70 @@ def emit(level, cam, out_path, rad=""):
         else:
             a1, a2 = f"<0,0,{span:.2f}>", f"<0,{(z1-z0):.2f},0>"
         L.append(f"light_source {{ <{cx:.2f},{cz:.2f},{cy:.2f}> color rgb <0.255,0.272,0.310>\n"
-                 f"  area_light {a1}, {a2}, 5, 5 adaptive 0 circular orient }}")
+                 f"  area_light {a1}, {a2}, 5, 5 adaptive 0 }}")
 
-    # throw cushions along the back of each seat run
-    for b in G[level]["furn"]:
-        if b["kind"] != "seat" or b["h"] > 0.55:
-            continue
-        horiz = b["w"] >= b["d"]
-        run = b["w"] if horiz else b["d"]
-        n = max(1, int(run // 0.95))
-        for i in range(n):
-            f = (i + 0.5) / n
-            cs = 0.34
-            if horiz:
-                cxx, czz = b["x"] + b["w"] * f - cs / 2, b["y"] + 0.04
-            else:
-                cxx, czz = b["x"] + 0.04, b["y"] + b["d"] * f - cs / 2
-            L.append(f"object {{ {rbox(cxx, czz, cs, cs*0.42, b['z']+b['h'], b['z']+b['h']+0.26, 0.09)} "
-                     f"texture {{ T_Cushion }} }}")
-
-    # curtain panels, pushed clear of the wall into the room
+    # curtains on poles, clear of the wall
     IN = {"n": (0, 1), "s": (0, -1), "w": (1, 0), "e": (-1, 0)}
     for x, y, w, d, z0, z1, side in glass(level):
         dx, dy = IN[side]
-        off = 0.20
-        top = SILL + WIN_H + 0.30
+        off, top = 0.20, SILL + WIN_H + 0.30
         if side in ("n", "s"):
             cy = y + dy * off
             for px in (x - 0.32, x + w + 0.04):
-                L.append(f"object {{ {box(px, cy - 0.055, 0.30, 0.11, 0.02, top)} texture {{ T_Curtain }} }}")
+                for geo, tex in LIB.curtain(px, cy - 0.055, 0.30, 0.11, top, pole=(px < x)):
+                    if geo:
+                        L.append(f"object {{ {geo} texture {{ {tex} }} }}")
         else:
             cx = x + dx * off
             for pz in (y - 0.32, y + d + 0.04):
-                L.append(f"object {{ {box(cx - 0.055, pz, 0.11, 0.30, 0.02, top)} texture {{ T_Curtain }} }}")
+                for geo, tex in LIB.curtain(cx - 0.055, pz, 0.11, 0.30, top, pole=(pz < y)):
+                    L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+        used_codes.append("CUR-904")
 
-    # a plant and a piece of wall art, placed only where they actually fit
-    def free(bx, by, bw, bd):
+    # planting and artwork, placed only where they clear the furniture
+    def free(bx_, by_, bw, bd):
         for f in G[level]["furn"]:
-            if not (bx >= f["x"] + f["w"] or bx + bw <= f["x"] or
-                    by >= f["y"] + f["d"] or by + bd <= f["y"]):
+            if not (bx_ >= f["x"] + f["w"] or bx_ + bw <= f["x"] or
+                    by_ >= f["y"] + f["d"] or by_ + bd <= f["y"]):
                 return False
         return True
 
     for r in rooms:
         if r["w"] * r["h"] < 12 or r["type"] in ("stair", "wc", "bath", "kitchen"):
             continue
-        # plant: try each corner, take the first clear one
         for fx, fy in ((0.08, 0.08), (0.92, 0.08), (0.08, 0.92), (0.92, 0.92)):
-            px = r["x"] + r["w"] * fx
-            pz = r["y"] + r["h"] * fy
-            px = min(max(px, r["x"] + 0.34), r["x"] + r["w"] - 0.34)
-            pz = min(max(pz, r["y"] + 0.34), r["y"] + r["h"] - 0.34)
-            if not free(px - 0.26, pz - 0.26, 0.52, 0.52):
+            px = min(max(r["x"] + r["w"] * fx, r["x"] + 0.36), r["x"] + r["w"] - 0.36)
+            pz = min(max(r["y"] + r["h"] * fy, r["y"] + 0.36), r["y"] + r["h"] - 0.36)
+            if not free(px - 0.28, pz - 0.28, 0.56, 0.56):
                 continue
-            L.append(f"object {{ cylinder {{ <{px:.2f},0,{pz:.2f}>, <{px:.2f},0.34,{pz:.2f}>, 0.20 }} "
-                     f"texture {{ pigment {{ rgb <0.70,0.66,0.60> }} finish {{ diffuse 0.6 specular 0.15 ambient 0 }} }} }}")
-            for ox_, oy_, rr, hh in ((0, 0, 0.44, 1.05), (0.16, 0.10, 0.34, 0.78), (-0.14, -0.10, 0.30, 0.62)):
-                L.append(f"object {{ sphere {{ <{px+ox_:.2f},{0.34+hh*0.55:.2f},{pz+oy_:.2f}>, {rr:.2f} "
-                         f"scale <1,{hh/(2*rr):.2f},1> }} texture {{ T_Plant }} }}")
+            for geo, tex in LIB.planter(px, pz):
+                L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+            used_codes.append("PLT-902")
             break
 
-        # art: only on a wall carrying neither a window nor this room's door
         busy = {w["side"] for w in r.get("win", [])}
         if r.get("door"):
             busy.add(r["door"]["side"])
         for side in ("n", "s", "w", "e"):
             if side in busy:
                 continue
-            if side == "n":   ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + 0.06, 1.10, 0.035
-            elif side == "s": ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + r["h"] - 0.095, 1.10, 0.035
-            elif side == "w": ax, az, aw, ad = r["x"] + 0.06, r["y"] + r["h"] / 2 - 0.55, 0.035, 1.10
-            else:             ax, az, aw, ad = r["x"] + r["w"] - 0.095, r["y"] + r["h"] / 2 - 0.55, 0.035, 1.10
-            L.append(f"object {{ {box(ax, az, aw, ad, 1.25, 2.05)} texture {{ T_Art }} }}")
+            if side == "n":   ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + 0.05, 1.10, 0.045
+            elif side == "s": ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + r["h"] - 0.095, 1.10, 0.045
+            elif side == "w": ax, az, aw, ad = r["x"] + 0.05, r["y"] + r["h"] / 2 - 0.55, 0.045, 1.10
+            else:             ax, az, aw, ad = r["x"] + r["w"] - 0.095, r["y"] + r["h"] / 2 - 0.55, 0.045, 1.10
+            for geo, tex in LIB.artwork(ax, az, aw, ad):
+                L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+            used_codes.append("ART-905")
             break
 
-    # pendant over each coffee / dining table
-    for b in G[level]["furn"]:
-        if b["kind"] != "wood" or b["h"] > 0.8 or b["w"] < 0.55 or b["d"] < 0.4:
+    # pendant over each low table
+    for bb in G[level]["furn"]:
+        if bb["kind"] != "wood" or bb["h"] > 0.8 or bb["w"] < 0.55 or bb["d"] < 0.4:
             continue
-        cx, cy = b["x"] + b["w"] / 2, b["y"] + b["d"] / 2
-        L.append(f"cylinder {{ <{cx:.2f},{CEIL:.2f},{cy:.2f}>, <{cx:.2f},{CEIL-0.55:.2f},{cy:.2f}>, 0.008 "
-                 f"texture {{ pigment {{ rgb 0.15 }} finish {{ diffuse 0.4 ambient 0 }} }} }}")
-        L.append(f"object {{ cone {{ <{cx:.2f},{CEIL-0.55:.2f},{cy:.2f}>, 0.06, "
-                 f"<{cx:.2f},{CEIL-0.80:.2f},{cy:.2f}>, 0.20 open }} "
-                 f"texture {{ pigment {{ rgb <0.94,0.92,0.88> }} finish {{ diffuse 0.5 specular 0.3 ambient 0 }} }} }}")
+        cx, cy = bb["x"] + bb["w"] / 2, bb["y"] + bb["d"] / 2
+        for geo, tex in LIB.pendant(cx, cy, CEIL):
+            L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+        used_codes.append("LGT-903")
         L.append(f"light_source {{ <{cx:.2f},{CEIL-0.78:.2f},{cy:.2f}> color rgb <0.16,0.147,0.126>\n"
                  f"  area_light <0.22,0,0>, <0,0,0.22>, 5, 5 adaptive 0 circular orient }}")
 
@@ -570,7 +503,7 @@ def emit(level, cam, out_path, rad=""):
                  f"texture {{ pigment {{ rgb <0.97,0.96,0.94> }} finish {{ diffuse 0.3 specular 0.2 ambient 0 }} }} }}")
 
     open(out_path, "w").write("\n".join(L) + "\n")
-    return out_path
+    return sorted(set(used_codes))
 
 def camera_for(level, room_key, eye=(0.88, 0.86), target=(0.30, 0.22),
                h=1.52, th=1.05, angle=62):
