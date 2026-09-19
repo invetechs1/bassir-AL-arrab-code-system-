@@ -233,6 +233,73 @@ def place(b, rooms, solids):
     return None
 
 
+def dress(code, b, r, face, head=None):
+    """Accessories for one placed piece.
+
+    A room that holds only its scheduled furniture reads as a showroom, not as
+    a photograph. The stylist's layer — cushions, a throw, books, a bowl, a
+    plant — is what the eye uses to decide an image is of a real place.
+    """
+    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], round(b["h"], 2)
+    cx, cy = x + w / 2, y + d / 2
+    out = []
+    if code == "SOF-301":
+        out += LIB.cushions(x, y, w, d, face, 0.42)
+        out += LIB.throw(x, y, w, d, face, 0.42)
+    elif code == "MAJ-201":
+        out += LIB.cushions(x, y, w, d, face, 0.42, n=max(2, int(max(w, d) / 0.95)))
+    elif code == "ARM-101":
+        out += LIB.cushions(x, y, w, d, face, 0.42, n=1)
+    elif code == "TBL-401":                      # coffee table
+        top = b["z"] + h
+        along_x = w >= d
+        a = (cx - (w * 0.20 if along_x else 0), cy - (0 if along_x else d * 0.20))
+        c = (cx + (w * 0.22 if along_x else 0), cy + (0 if along_x else d * 0.22))
+        out += LIB.book_stack(a[0], a[1], top)
+        out += LIB.bowl(c[0], c[1], top, 0.10)
+    elif code == "TBL-501":                      # dining table
+        out += LIB.vase(cx, cy, b["z"] + h, 0.26)
+    elif code == "CON-403":                      # console
+        top = b["z"] + h
+        along_x = w >= d
+        out += LIB.vase(cx - (w * 0.24 if along_x else 0),
+                        cy - (0 if along_x else d * 0.24), top, 0.30)
+        out += LIB.book_stack(cx + (w * 0.24 if along_x else 0),
+                              cy + (0 if along_x else d * 0.24), top, 2)
+    elif code == "TVU-402":
+        out += LIB.bowl(cx + w * 0.30, cy, b["z"] + h, 0.09, "M_Ceramic")
+    elif code in ("BED-601", "BED-602") and head:
+        out += LIB.bed_throw(x, y, w, d, head, b["z"] + h + 0.02)
+    elif code == "NIG-603":
+        out += LIB.book_stack(cx, cy, b["z"] + h, 2, 0.17, 0.13)
+    return out
+
+
+def corner_props(level, rooms, solids):
+    """One floor plant and one floor lamp per living space, in a free corner."""
+    out = []
+    for r in rooms:
+        if r["type"] not in ("living", "majlis", "family", "dining", "bed_master", "bed"):
+            continue
+        x0, y0 = r["x"], r["y"]
+        x1, y1 = r["x"] + r["w"], r["y"] + r["h"]
+        spots = [(x0 + 0.52, y0 + 0.52), (x1 - 0.52, y0 + 0.52),
+                 (x0 + 0.52, y1 - 0.52), (x1 - 0.52, y1 - 0.52)]
+        free = []
+        for sx, sy in spots:
+            if all(not (b["x"] - 0.34 < sx < b["x"] + b["w"] + 0.34 and
+                        b["y"] - 0.34 < sy < b["y"] + b["d"] + 0.34)
+                   for b in solids):
+                free.append((sx, sy))
+        if free:
+            px, py = free[0]
+            out += LIB.potted_plant(px, py, 1.10 if r["type"] in ("living", "majlis", "family") else 0.82)
+        if len(free) > 1 and r["type"] in ("living", "majlis", "family"):
+            lx, ly = free[-1]
+            out += LIB.floor_lamp(lx, ly)
+    return out
+
+
 # ---------------------------------------------------------------- scene text
 HEADER = """#version 3.7;
 #include "colors.inc"
@@ -240,11 +307,11 @@ HEADER = """#version 3.7;
 
 global_settings {
   assumed_gamma 1.0
-  max_trace_level 5
+  max_trace_level 7
   radiosity {
     pretrace_start 0.08 pretrace_end 0.015
-    count 300 nearest_count 16 error_bound 0.30
-    recursion_limit 2 low_error_factor 0.5
+    count 360 nearest_count 18 error_bound 0.24
+    recursion_limit 3 low_error_factor 0.5
     gray_threshold 0 minimum_reuse 0.008 maximum_reuse 0.05
     brightness 1 adc_bailout 0.02 always_sample off
     normal off media off
@@ -340,11 +407,17 @@ global_settings {
   finish { diffuse 0.52 specular 0.36 roughness 0.006
            reflection { 0.028 } conserve_energy ambient 0 }
 }
+// Glazing at ior 1.0 with no reflection term is optically absent: the windows
+// render as holes cut in the wall. Real glass reflects a few percent head-on
+// and almost everything at a grazing angle, and carries a green edge tint from
+// the iron in the float, both of which the eye reads as "there is glass here".
 #declare T_Glass = texture {
-  pigment { rgbf <1.0,1.0,1.0,0.992> }
-  finish { diffuse 0.0 specular 0.25 roughness 0.001 ambient 0 }
+  pigment { rgbf <0.994,0.998,0.992,0.968> }
+  finish { diffuse 0.0 specular 0.30 roughness 0.0006
+           reflection { 0.035, 1.0 fresnel on } conserve_energy ambient 0 }
 }
-#declare I_Glass = interior { ior 1.0 }
+#declare I_Glass = interior { ior 1.52
+  fade_distance 9 fade_power 1001 fade_color <0.88,0.955,0.92> }
 
 // daylight: warm sun plus a bright sky the windows can see
 sky_sphere { pigment { gradient y
@@ -365,11 +438,85 @@ plane { y, -0.19 texture { pigment { rgb <0.665,0.610,0.520> }
 object { box { <-34,0,-30>, <-16,7.5,-16> } texture { T_Far } }
 object { box { <14,0,-27>, <30,5.5,-13> } texture { T_Far } }
 object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
-#declare T_Palm = texture { pigment { rgb <0.32,0.38,0.26> } finish { diffuse 0.62 ambient 0 } };
-object { cylinder { <-4.5,0,-7>, <-4.5,3.4,-7>, 0.16 } texture { pigment { rgb <0.38,0.31,0.22> } finish { diffuse 0.6 ambient 0 } } }
-object { sphere { <-4.5,3.8,-7>, 1.25 scale <1,0.55,1> } texture { T_Palm } }
-object { cylinder { <13,0,5>, <13,3.0,5>, 0.15 } texture { pigment { rgb <0.38,0.31,0.22> } finish { diffuse 0.6 ambient 0 } } }
-object { sphere { <13,3.35,5>, 1.1 scale <1,0.55,1> } texture { T_Palm } }
+// date palm: a squashed sphere on a stick read as a blob in every window, and
+// the glazing is where the eye goes first. Trunk = stacked frond scars, crown =
+// individual drooping fronds, so the silhouette breaks up against the sky.
+#declare T_Frond = texture { pigment { rgb <0.176,0.232,0.132> }
+  normal { bumps 0.35 scale 0.035 }
+  finish { diffuse 0.58 specular 0.12 roughness 0.06 ambient 0 } }
+#declare T_Trunk = texture {
+  pigment { gradient y scale 0.22
+    color_map { [0.00 rgb <0.286,0.232,0.170>][0.45 rgb <0.348,0.288,0.212>]
+                [0.55 rgb <0.222,0.178,0.128>][1.00 rgb <0.300,0.246,0.180>] } }
+  normal { bumps 0.55 scale 0.06 }
+  finish { diffuse 0.60 ambient 0 } }
+
+// one frond: a long tapered blade that lifts, then droops under its own weight
+#macro Frond(len, droop)
+  union {
+    #local N = 9;
+    #local i = 0;
+    #while (i < N)
+      #local t0 = i / N;  #local t1 = (i + 1) / N;
+      #local y0 = len * (0.42 * t0 - droop * t0 * t0 * 1.35);
+      #local y1 = len * (0.42 * t1 - droop * t1 * t1 * 1.35);
+      #local r0 = 0.075 * (1 - 0.72 * t0);
+      #local r1 = 0.075 * (1 - 0.72 * t1);
+      cone { <len * t0, y0, 0>, r0, <len * t1, y1, 0>, r1 }
+      // leaflets fan out either side of the rachis in a shallow V
+      #if (i > 0)
+        #local w = 0.30 * (1 - 0.55 * t0);
+        box { <-0.055, -0.006, 0>, <0.055, 0.006, w>
+              rotate <-24, 0, 0> translate <len * t0, y0, 0> }
+        box { <-0.055, -0.006, -w>, <0.055, 0.006, 0>
+              rotate <24, 0, 0> translate <len * t0, y0, 0> }
+      #end
+      #local i = i + 1;
+    #end
+  }
+#end
+
+#macro Palm(px, pz, h, lean, sd)
+  #local S = sd;
+  union {
+    cone { <0,0,0>, 0.21, <lean * h * 0.06, h, lean * h * 0.03>, 0.145 texture { T_Trunk } }
+    #local k = 0;
+    #while (k < 14)
+      #local a = k * 25.7 + S * 13;
+      #local tilt = 8 + mod(k * 37 + S, 46);
+      object { Frond(2.05 + mod(k * 17 + S, 7) * 0.075, 0.30 + mod(k * 11 + S, 5) * 0.035)
+               texture { T_Frond }
+               rotate <0, 0, tilt> rotate <0, a, 0>
+               translate <lean * h * 0.06, h - 0.05, lean * h * 0.03> }
+      #local k = k + 1;
+    #end
+    // fruit stalks
+    #local k = 0;
+    #while (k < 3)
+      sphere { <0,0,0>, 0.34 scale <1,0.6,1>
+               texture { pigment { rgb <0.42,0.30,0.14> } finish { diffuse 0.6 ambient 0 } }
+               rotate <0, k * 118 + S, 0>
+               translate <lean * h * 0.06 + 0.55 * cos(k * 2.06), h - 0.45, lean * h * 0.03 + 0.55 * sin(k * 2.06)> }
+      #local k = k + 1;
+    #end
+    translate <px, 0, pz>
+  }
+#end
+
+object { Palm(-4.9, -7.4, 4.3, 0.18, 2) }
+object { Palm(13.2, 5.1, 3.7, -0.12, 9) }
+object { Palm(-7.8, -9.6, 4.9, 0.07, 5) }
+
+// clipped hedge along the boundary, so the ground is not an empty sand plane
+#declare T_Hedge = texture { pigment { rgb <0.150,0.206,0.122> }
+  normal { bumps 0.75 scale 0.09 } finish { diffuse 0.56 ambient 0 } }
+object { box { <-13, 0, -9.4>, <13, 0.95, -8.7> } texture { T_Hedge } }
+object { box { <-13, 0, 8.7>, <13, 0.95, 9.4> } texture { T_Hedge } }
+
+// aerial perspective: without it the sand plane meets the sky on a hard line at
+// infinity, which no photograph of an outdoor scene ever shows. The distance is
+// far beyond any interior surface, so nothing inside the villa is touched.
+fog { distance 320 color rgb <0.76,0.79,0.86> fog_type 2 fog_offset 0 fog_alt 26 }
 
 light_source { <26, 15, 24> color rgb <0.055,0.065,0.082>
   area_light <3,0,0>, <0,0,3>, 2, 2 adaptive 1 jitter shadowless }
@@ -410,6 +557,13 @@ def emit(level, cam, out_path, rad=""):
         if res is not None:
             codes, pieces = res
             used_codes.extend(codes)
+            rr = room_of(b, rooms)
+            ctr = _centre(rr) if rr else (b["x"], b["y"])
+            fc = LIB.facing_side(b["x"], b["y"], b["w"], b["d"], ctr)
+            for code in codes:
+                hd = LIB.facing_side(b["x"], b["y"], b["w"], b["d"],
+                                     (ctr[0], ctr[1] - 99)) if code.startswith("BED") else None
+                pieces = list(pieces) + dress(code, b, rr, fc, hd)
             for geo, tex in pieces:
                 if geo:
                     L.append(f"object {{ {geo} texture {{ {tex} }} }}")
@@ -420,6 +574,10 @@ def emit(level, cam, out_path, rad=""):
                if b["kind"] in SOFT and min(b["w"], b["d"], b["h"]) > 0.12
                else box(b["x"], b["y"], b["w"], b["d"], z0, z1))
         L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+
+    for geo, tex in corner_props(level, rooms, G[level]["furn"]):
+        if geo:
+            L.append(f"object {{ {geo} texture {{ {tex} }} }}")
 
     # portal lights sitting in the window openings
     IN0 = {"n": (0, 1), "s": (0, -1), "w": (1, 0), "e": (-1, 0)}

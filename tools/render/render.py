@@ -10,10 +10,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 VIEWS = [
     ("majlis-ground",   "ground", "majlis",  dict(eye=(0.93, 0.93), target=(0.25, 0.15), angle=66)),
-    ("living-ground",   "ground", "living",  dict(eye=(0.50, 0.07), target=(0.50, 0.96), angle=64)),
+    ("living-ground",   "ground", "living",  dict(eye=(0.15, 0.10), target=(0.80, 0.93), angle=66)),
     ("kitchen-ground",  "ground", "kitchen", dict(eye=(0.92, 0.17), target=(0.28, 0.88), angle=70)),
-    ("master-first",    "first",  "master",  dict(eye=(0.50, 0.94), target=(0.50, 0.08), angle=66)),
-    ("bedroom2-first",  "first",  "bed2",    dict(eye=(0.50, 0.92), target=(0.50, 0.10), angle=64)),
+    ("master-first",    "first",  "master",  dict(eye=(0.14, 0.90), target=(0.83, 0.12), angle=64)),
+    ("bedroom2-first",  "first",  "bed2",    dict(eye=(0.87, 0.90), target=(0.18, 0.12), angle=62)),
 ]
 
 
@@ -23,7 +23,7 @@ def main():
     ap.add_argument("--width", type=int, default=1400)
     ap.add_argument("--height", type=int, default=900)
     ap.add_argument("--only", default=None, help="render a single view by name")
-    ap.add_argument("--exposure", type=float, default=0.55,
+    ap.add_argument("--exposure", type=float, default=0.46,
                     help="tone-mapping exposure applied to the HDR")
     args = ap.parse_args()
 
@@ -47,7 +47,8 @@ def main():
             print(f"{name}: FAILED in {time.time() - t0:.0f}s", flush=True)
             print(r.stderr[-800:], file=sys.stderr)
             continue
-        post.grade(hdr, png, exposure=args.exposure, temp=1.03, bloom_strength=0.11)
+        post.grade(hdr, png, exposure=args.exposure, temp=1.03, bloom_strength=0.11,
+                   grain_amount=0.0026, vig=0.22, contrast=1.10)
         print(f"{name}: ok in {time.time() - t0:.0f}s -> {png}", flush=True)
 
 

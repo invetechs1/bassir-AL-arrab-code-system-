@@ -13,6 +13,8 @@ Dimensions are metres inside build(); the catalogue quotes millimetres the way
 a schedule does.
 """
 
+import math
+
 # ----------------------------------------------------------------- geometry
 def bx(x, y, w, d, z0, z1):
     return (f"box {{ <{x:.4f},{z0:.4f},{y:.4f}>, "
@@ -437,8 +439,30 @@ def pendant(cx, cy, ceil, drop=0.80, r=0.20):
 
 
 def curtain(x, y, w, d, height, pole=True):
-    """A pinch-pleated panel; the waves normal supplies the fold."""
-    out = [(bx(x, y, w, d, 0.02, height), "M_Curtain")]
+    """A pinch-pleated panel built from overlapping vertical folds.
+
+    A normal map cannot bend a silhouette, so a flat box with a waves normal
+    still reads as a dead-straight ribbon at the edges — which is what gives a
+    curtain away. Overlapping cylinders spaced tighter than their diameter
+    merge into one continuous surface with a genuinely wavy outline that also
+    self-shadows.
+    """
+    along_x = w >= d
+    run = w if along_x else d
+    pitch, r = 0.105, 0.058
+    n = max(int(round(run / pitch)), 2)
+    pitch = run / n
+    folds = []
+    for i in range(n + 1):
+        t = i * pitch
+        # break the rhythm so the folds are not a perfect comb
+        rr = r * (0.86 + 0.14 * ((i * 7) % 5) / 4.0)
+        if along_x:
+            cx, cy = x + t, y + d / 2
+        else:
+            cx, cy = x + w / 2, y + t
+        folds.append(cyl(cx, cy, 0.015, height, rr))
+    out = [("merge { " + " ".join(f for f in folds if f) + " }", "M_Curtain")]
     if pole:
         if w >= d:
             out.append((cyl_h(x - 0.08, x + w + 0.08, y + d / 2, height + 0.06, 0.016, "x"), "M_Metal"))
@@ -521,22 +545,26 @@ MATERIALS = """
 }
 #declare M_Fabric = texture {
   pigment { rgb <0.560,0.552,0.524> }
-  normal { bumps 0.32 scale 0.0062 }
+  normal { bumps 0.085 scale 0.0090 }
+  normal { bumps 0.12 scale 0.075 }
   finish { diffuse 0.70 specular 0.045 roughness 0.42 ambient 0 }
 }
 #declare M_FabricAlt = texture {
   pigment { rgb <0.492,0.494,0.476> }
-  normal { bumps 0.30 scale 0.0068 }
+  normal { bumps 0.080 scale 0.0095 }
+  normal { bumps 0.11 scale 0.082 }
   finish { diffuse 0.70 specular 0.05 roughness 0.40 ambient 0 }
 }
 #declare M_Majlis = texture {
-  pigment { rgb <0.352,0.430,0.392> }
-  normal { bumps 0.36 scale 0.0075 }
+  pigment { rgb <0.246,0.312,0.286> }
+  normal { bumps 0.095 scale 0.0105 }
+  normal { bumps 0.14 scale 0.070 }
   finish { diffuse 0.66 specular 0.05 roughness 0.40 ambient 0 }
 }
 #declare M_MajlisAlt = texture {
-  pigment { rgb <0.300,0.372,0.340> }
-  normal { bumps 0.38 scale 0.0070 }
+  pigment { rgb <0.206,0.268,0.246> }
+  normal { bumps 0.090 scale 0.0100 }
+  normal { bumps 0.13 scale 0.078 }
   finish { diffuse 0.64 specular 0.05 roughness 0.40 ambient 0 }
 }
 #declare M_Lacquer = texture {
@@ -641,9 +669,43 @@ MATERIALS = """
 }
 #declare M_Curtain = texture {
   pigment { rgb <0.888,0.872,0.834> }
-  normal { waves 0.30 frequency 11 scale 0.26 }
+  normal { waves 0.13 frequency 9 scale 0.30 }
   finish { diffuse 0.74 specular 0.035 roughness 0.45 ambient 0 }
 }
+#declare M_Cushion = texture {
+  pigment { rgb <0.262,0.196,0.138> }
+  normal { bumps 0.10 scale 0.011 } normal { bumps 0.16 scale 0.06 }
+  finish { diffuse 0.66 specular 0.06 roughness 0.34 ambient 0 }
+}
+#declare M_CushionAlt = texture {
+  pigment { rgb <0.418,0.372,0.296> }
+  normal { bumps 0.10 scale 0.012 } normal { bumps 0.15 scale 0.065 }
+  finish { diffuse 0.68 specular 0.06 roughness 0.34 ambient 0 }
+}
+#declare M_Throw = texture {
+  pigment { rgb <0.560,0.500,0.418> }
+  normal { bumps 0.22 scale 0.020 } normal { waves 0.30 frequency 7 scale 0.22 }
+  finish { diffuse 0.70 specular 0.04 roughness 0.45 ambient 0 }
+}
+#declare M_Ceramic = texture {
+  pigment { rgb <0.812,0.782,0.726> }
+  finish { diffuse 0.44 specular 0.42 roughness 0.004
+           reflection { 0.040 } conserve_energy ambient 0 }
+}
+#declare M_CeramicDark = texture {
+  pigment { rgb <0.196,0.212,0.206> }
+  finish { diffuse 0.30 specular 0.50 roughness 0.003
+           reflection { 0.055 } conserve_energy ambient 0 }
+}
+#declare M_Brass = texture {
+  pigment { rgb <0.560,0.442,0.222> }
+  finish { diffuse 0.16 specular 0.68 roughness 0.006 metallic
+           reflection { 0.38 metallic } conserve_energy ambient 0 }
+}
+#declare M_BookA = texture { pigment { rgb <0.352,0.146,0.126> } finish { diffuse 0.55 specular 0.10 roughness 0.05 ambient 0 } }
+#declare M_BookB = texture { pigment { rgb <0.180,0.226,0.268> } finish { diffuse 0.55 specular 0.10 roughness 0.05 ambient 0 } }
+#declare M_BookC = texture { pigment { rgb <0.760,0.736,0.690> } finish { diffuse 0.60 specular 0.08 roughness 0.06 ambient 0 } }
+#declare M_Paper = texture { pigment { rgb <0.880,0.868,0.840> } finish { diffuse 0.72 ambient 0 } }
 #declare M_Frame = texture { pigment { rgb <0.155,0.150,0.145> } finish { diffuse 0.35 specular 0.2 ambient 0 } }
 #declare M_Art = texture {
   pigment { marble turbulence 0.62 scale 0.42
@@ -656,3 +718,140 @@ MATERIALS = """
            reflection { 0.035 } conserve_energy ambient 0 }
 }
 """
+
+
+# ------------------------------------------------------- styling / accessories
+# An empty room is the strongest CG tell there is: real interior photography is
+# always dressed. These are the pieces a stylist puts in after the FF&E lands.
+
+def _face_vec(face):
+    return {"n": (0, 1), "s": (0, -1), "e": (1, 0), "w": (-1, 0)}[face]
+
+
+def cushions(x, y, w, d, face, seat_top=0.42, n=None):
+    """Scatter cushions along the back of a sofa or bench."""
+    fx, fy = _face_vec(face)
+    run = w if abs(fx) < abs(fy) or w >= d else d
+    along_x = w >= d
+    n = n if n is not None else max(2, min(4, int(run / 0.85)))
+    out = []
+    for i in range(n):
+        t = (i + 0.5) / n
+        # sit the cushion just off the back cushion, tipped forward a little
+        if along_x:
+            cx = x + t * w
+            cy = y + d / 2 - fy * (d * 0.24)
+        else:
+            cx = x + w / 2 - fx * (w * 0.24)
+            cy = y + t * d
+        sz = 0.215 + 0.025 * (i % 2)
+        tex = "M_Cushion" if i % 2 == 0 else "M_CushionAlt"
+        out.append((sph(cx, cy, seat_top + sz * 0.78, sz, 1.0, 0.46, 1.0), tex))
+    return out
+
+
+def throw(x, y, w, d, face, seat_top=0.42):
+    """A folded blanket over one end of the seat, breaking the silhouette."""
+    fx, fy = _face_vec(face)
+    along_x = w >= d
+    if along_x:
+        tx, ty, tw, td = x + w * 0.66, y + d * 0.16, w * 0.30, d * 0.66
+    else:
+        tx, ty, tw, td = x + w * 0.16, y + d * 0.66, w * 0.66, d * 0.30
+    out = [(rb(tx, ty, tw, td, seat_top - 0.004, seat_top + 0.055, 0.025), "M_Throw")]
+    # the fall over the front edge
+    if along_x:
+        out.append((rb(tx + tw * 0.10, y - 0.03 if fy > 0 else y + d - 0.03,
+                       tw * 0.62, 0.045, seat_top - 0.30, seat_top + 0.03, 0.02), "M_Throw"))
+    else:
+        out.append((rb(x - 0.03 if fx > 0 else x + w - 0.03, ty + td * 0.10,
+                       0.045, td * 0.62, seat_top - 0.30, seat_top + 0.03, 0.02), "M_Throw"))
+    return out
+
+
+def book_stack(cx, cy, top, n=3, w=0.24, d=0.17):
+    out, z = [], top
+    for i in range(n):
+        t = 0.030 - i * 0.004
+        off = 0.012 * (1 if i % 2 else -1)
+        tex = ("M_BookA", "M_BookB", "M_BookC")[i % 3]
+        out.append((bx(cx - w / 2 + off, cy - d / 2 + off * 0.6, w, d, z, z + t), tex))
+        out.append((bx(cx - w / 2 + off + 0.006, cy - d / 2 + off * 0.6 + 0.004,
+                       w - 0.012, d - 0.008, z + 0.004, z + t - 0.004), "M_Paper"))
+        z += t
+    return out
+
+
+def bowl(cx, cy, top, r=0.115, tex="M_CeramicDark"):
+    return [(f"difference {{ {sph(cx, cy, top + r * 0.52, r, 1.0, 0.62, 1.0)} "
+             f"{sph(cx, cy, top + r * 0.62, r - 0.014, 1.0, 0.62, 1.0)} "
+             f"{bx(cx - r, cy - r, 2 * r, 2 * r, top - r, top)} }}", tex)]
+
+
+def tray(cx, cy, top, w=0.44, d=0.30):
+    out = [(rb(cx - w / 2, cy - d / 2, w, d, top, top + 0.012, 0.010), "M_WoodDark")]
+    for ex, ey, ew, ed in ((0, -d / 2, w, 0.014), (0, d / 2 - 0.014, w, 0.014),
+                           (-w / 2, 0, 0.014, d), (w / 2 - 0.014, 0, 0.014, d)):
+        out.append((rb(cx + ex - (ew / 2 if ew > 0.02 else 0),
+                       cy + ey - (ed / 2 if ed > 0.02 else 0),
+                       ew, ed, top + 0.010, top + 0.034, 0.006), "M_WoodDark"))
+    return out
+
+
+def vase(cx, cy, top, h=0.30, stems=True):
+    r = h * 0.30
+    out = [(f"merge {{ {sph(cx, cy, top + h * 0.34, r, 1.0, 1.0, 1.0)} "
+            f"{cyl(cx, cy, top + h * 0.34, top + h, r * 0.42)} "
+            f"{cyl(cx, cy, top, top + h * 0.20, r * 0.62)} }}", "M_Ceramic")]
+    if stems:
+        for i, (ax, ay, hh) in enumerate(((0.05, 0.03, 0.34), (-0.04, 0.05, 0.28),
+                                          (0.02, -0.06, 0.40), (-0.06, -0.02, 0.24))):
+            out.append((f"cylinder {{ <{cx:.4f},{top + h:.4f},{cy:.4f}>, "
+                        f"<{cx + ax:.4f},{top + h + hh:.4f},{cy + ay:.4f}>, 0.0045 }}", "M_Stem"))
+            out.append((sph(cx + ax, cy + ay, top + h + hh, 0.055, 1.0, 0.55, 0.8), "M_Foliage"))
+    return out
+
+
+def floor_lamp(cx, cy, h=1.58):
+    return [(cyl(cx, cy, 0.0, 0.022, 0.16), "M_Metal"),
+            (cyl(cx, cy, 0.022, h, 0.014), "M_Metal"),
+            (f"difference {{ cone {{ <{cx:.4f},{h - 0.26:.4f},{cy:.4f}>, 0.175 "
+             f"<{cx:.4f},{h + 0.02:.4f},{cy:.4f}>, 0.135 }} "
+             f"cone {{ <{cx:.4f},{h - 0.275:.4f},{cy:.4f}>, 0.168 "
+             f"<{cx:.4f},{h + 0.035:.4f},{cy:.4f}>, 0.128 }} }}", "M_Shade"),
+            (sph(cx, cy, h - 0.12, 0.048), "M_Bulb")]
+
+
+def potted_plant(cx, cy, h=1.15, r=0.20):
+    """A floor plant: tapered pot, a few arching stems, leaf clusters."""
+    out = [(f"difference {{ cone {{ <{cx:.4f},0,{cy:.4f}>, {r * 0.78:.4f} "
+            f"<{cx:.4f},{r * 1.55:.4f},{cy:.4f}>, {r:.4f} }} "
+            f"cone {{ <{cx:.4f},{r * 0.22:.4f},{cy:.4f}>, {r * 0.66:.4f} "
+            f"<{cx:.4f},{r * 1.62:.4f},{cy:.4f}>, {r * 0.90:.4f} }} }}", "M_Pot")]
+    out.append((sph(cx, cy, r * 1.44, r * 0.88, 1.0, 0.22, 1.0), "M_Stone"))
+    base = r * 1.50
+    for i in range(7):
+        a = i * 0.897
+        ax, ay = math.cos(a), math.sin(a)
+        reach = r * (1.5 + 0.5 * ((i * 3) % 4) / 3.0)
+        top = base + h * (0.55 + 0.45 * ((i * 5) % 3) / 2.0)
+        out.append((f"cylinder {{ <{cx:.4f},{base:.4f},{cy:.4f}>, "
+                    f"<{cx + ax * reach:.4f},{top:.4f},{cy + ay * reach:.4f}>, 0.010 }}", "M_Stem"))
+        for j in range(3):
+            t = 0.45 + j * 0.27
+            lx, ly = cx + ax * reach * t, cy + ay * reach * t
+            lz = base + (top - base) * t
+            out.append((sph(lx, ly, lz, 0.105, 1.0, 0.30, 0.72), "M_Foliage"))
+        out.append((sph(cx + ax * reach, cy + ay * reach, top, 0.125, 1.0, 0.34, 0.8), "M_Foliage"))
+    return out
+
+
+def bed_throw(x, y, w, d, head, top=0.52):
+    """A folded runner across the foot of the bed."""
+    if head in ("n", "s"):
+        fy = y + d * (0.06 if head == "n" else 0.66)
+        g = rb(x - 0.035, fy, w + 0.07, d * 0.28, top - 0.01, top + 0.05, 0.022)
+    else:
+        fx = x + w * (0.06 if head == "e" else 0.66)
+        g = rb(fx, y - 0.035, w * 0.28, d + 0.07, top - 0.01, top + 0.05, 0.022)
+    return [(g, "M_Throw")]
