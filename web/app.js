@@ -258,7 +258,7 @@ DRAW.dimV = function (y1, y2, x, label, flag) {
 
 /* ============================ sheet chrome ============================ */
 
-var SHEETS = ["site", "ground", "typical", "interior", "interior2", "finishes", "elevation", "section", "parking", "roof"];
+var SHEETS = ["site", "ground", "typical", "interior", "interior2", "iso", "iso2", "finishes", "elevation", "section", "parking", "roof"];
 
 function sheetMeta(key) {
   var M = {
@@ -270,6 +270,8 @@ function sheetMeta(key) {
     interior: [t("التصميم الداخلي والفرش — الأرضي", "Interior and Furniture — Ground"), "A-106"],
     interior2: [t("التصميم الداخلي والفرش — الأول", "Interior and Furniture — First"), "A-107"],
     finishes: [t("جدول تشطيبات الغرف", "Room Finishes Schedule"), "A-108"],
+    iso: [t("منظور مجسم — الدور الأرضي", "Axonometric — Ground Floor"), "A-109"],
+    iso2: [t("منظور مجسم — الدور الأول", "Axonometric — First Floor"), "A-110"],
     elevation: [t("الواجهة الأمامية", "Front Elevation"), "A-201"],
     section: [t("مقطع رأسي أ-أ", "Section A-A"), "A-301"],
     parking: [t("مخطط المواقف", "Parking Layout"), "A-104"],
@@ -281,6 +283,7 @@ function sheetMeta(key) {
 function contentSize(key, g) {
   if (key === "elevation" || key === "section") { return { w: g.bw + 8, h: g.height + 6 }; }
   if (key === "finishes") { return { w: 100, h: 70 }; }
+  if (key === "iso" || key === "iso2") { return isoSize(g); }
   if (key === "ground" || key === "typical" || key === "interior" || key === "interior2") {
     var pd = planPad(g);
     return { w: g.bw + 2 * pd, h: g.bd + 2 * pd };
@@ -313,6 +316,8 @@ DRAW.legend = function (key, x, y) {
     typical: [[t("جدار خارجي", "External wall"), "thick"], [t("قاطع داخلي", "Partition"), "solid"], [t("حد الوحدة", "Unit boundary"), "dash"]],
     interior: [[t("أثاث وتجهيزات", "Furniture and fixtures"), "fill"], [t("رقم الفرش", "Furniture tag"), "solid"], [t("سجادة", "Rug"), "dash"]],
     interior2: [[t("أثاث وتجهيزات", "Furniture and fixtures"), "fill"], [t("رقم الفرش", "Furniture tag"), "solid"], [t("سجادة", "Rug"), "dash"]],
+    iso: [[t("جدران مخفّضة", "Cut-down walls"), "fill"], [t("أثاث مجسم", "Furniture solids"), "solid"]],
+    iso2: [[t("جدران مخفّضة", "Cut-down walls"), "fill"], [t("أثاث مجسم", "Furniture solids"), "solid"]],
     elevation: [[t("خط الأرض", "Ground line"), "thick"], [t("فتحة نافذة", "Window"), "fill"], [t("خط منسوب", "Level line"), "dash"]],
     section: [[t("بلاطة خرسانية", "Concrete slab"), "fill"], [t("أساسات", "Foundation"), "thick"], [t("منسوب دور", "Floor level"), "dash"]],
     parking: [[t("موقف سيارة", "Parking bay"), "solid"], [t("مسار حركة", "Drive aisle"), "dash"], [t("بصمة المبنى", "Footprint"), "fill"]],
@@ -842,6 +847,303 @@ function drawPlan(m, level, opts) {
   return out;
 }
 
+
+/* ==================== isometric interior views ====================
+ * A dollhouse axonometric built from the same room layout the plans use.
+ * Walls are cut down so the interior stays visible, furniture is extruded
+ * into solids, and every face is shaded by orientation. This is a true
+ * projected 3D view, not a photorealistic render: there is no renderer,
+ * no lighting model and no materials.
+ */
+
+var ISO_COS = 0.86602540378, ISO_SIN = 0.5;
+var WALL_H = 1.25, PART_H = 1.10;
+
+/* palette: [top, right, front] per solid kind */
+var ISO_MAT = {
+  floor:    ["#e9e5dd", "#d9d4ca", "#cfc9be"],
+  wall:     ["#dfe3e0", "#c3cac6", "#aeb6b1"],
+  part:     ["#e7ebe8", "#ced5d1", "#bcc4bf"],
+  seat:     ["#b9c7c0", "#9dafa6", "#8a9e94"],
+  soft:     ["#cdd8d2", "#b2c0b9", "#a0b0a8"],
+  wood:     ["#c9b79c", "#b3a086", "#a08d74"],
+  counter:  ["#cfd6d2", "#b4bdb8", "#a2aca7"],
+  white:    ["#f2f4f3", "#dee3e1", "#ccd3d0"],
+  green:    ["#a8c4b6", "#8fae9e", "#7d9d8c"],
+  step:     ["#dcdfdc", "#c2c7c3", "#b0b6b1"]
+};
+
+function isoBox(x, y, z, w, d, h, kind) {
+  return { x: x, y: y, z: z, w: w, d: d, h: h, kind: kind || "part" };
+}
+
+/* Wall segments for a level, with door openings cut out. */
+function villaWalls(level, W, D) {
+  var rooms = villaRooms(level, W, D), segs = [], t = WALL_INT;
+
+  // external envelope, four runs
+  segs.push({ x: 0, y: 0, w: W, d: WALL_EXT, h: WALL_H, kind: "wall" });
+  segs.push({ x: 0, y: D - WALL_EXT, w: W, d: WALL_EXT, h: WALL_H, kind: "wall" });
+  segs.push({ x: 0, y: 0, w: WALL_EXT, d: D, h: WALL_H, kind: "wall" });
+  segs.push({ x: W - WALL_EXT, y: 0, w: WALL_EXT, d: D, h: WALL_H, kind: "wall" });
+
+  // internal partitions from the room edges, de-duplicated
+  var seen = {};
+  function push(x, y, w, d) {
+    var key = [f2(x), f2(y), f2(w), f2(d)].join("|");
+    if (seen[key]) { return; }
+    seen[key] = 1;
+    segs.push({ x: x, y: y, w: w, d: d, h: PART_H, kind: "part", inner: true });
+  }
+  rooms.forEach(function (r) {
+    if (r.y > 0.01) { push(r.x, r.y - t / 2, r.w, t); }
+    if (r.y + r.h < D - 0.01) { push(r.x, r.y + r.h - t / 2, r.w, t); }
+    if (r.x > 0.01) { push(r.x - t / 2, r.y, t, r.h); }
+    if (r.x + r.w < W - 0.01) { push(r.x + r.w - t / 2, r.y, t, r.h); }
+  });
+
+  // door openings, as rectangles to subtract
+  var holes = [];
+  rooms.forEach(function (r) {
+    if (!r.door) { return; }
+    var pt = edgePoint(r, r.door.side, r.door.at, DOOR_W);
+    holes.push(pt.horiz
+      ? { x: pt.x, y: pt.y - 0.2, w: DOOR_W, d: 0.4 }
+      : { x: pt.x - 0.2, y: pt.y, w: 0.4, d: DOOR_W });
+  });
+
+  // split each segment around any opening that crosses it
+  var out = [];
+  segs.forEach(function (s) {
+    var pieces = [s];
+    holes.forEach(function (ho) {
+      var next = [];
+      pieces.forEach(function (pc) {
+        var horiz = pc.w >= pc.d;
+        var overlap = !(ho.x >= pc.x + pc.w || ho.x + ho.w <= pc.x ||
+                        ho.y >= pc.y + pc.d || ho.y + ho.d <= pc.y);
+        if (!overlap) { next.push(pc); return; }
+        if (horiz) {
+          if (ho.x > pc.x + 0.02) { next.push({ x: pc.x, y: pc.y, w: ho.x - pc.x, d: pc.d, h: pc.h, kind: pc.kind }); }
+          var rx = ho.x + ho.w;
+          if (rx < pc.x + pc.w - 0.02) { next.push({ x: rx, y: pc.y, w: pc.x + pc.w - rx, d: pc.d, h: pc.h, kind: pc.kind }); }
+        } else {
+          if (ho.y > pc.y + 0.02) { next.push({ x: pc.x, y: pc.y, w: pc.w, d: ho.y - pc.y, h: pc.h, kind: pc.kind }); }
+          var ry = ho.y + ho.d;
+          if (ry < pc.y + pc.d - 0.02) { next.push({ x: pc.x, y: ry, w: pc.w, d: pc.y + pc.d - ry, h: pc.h, kind: pc.kind }); }
+        }
+      });
+      pieces = next;
+    });
+    out = out.concat(pieces);
+  });
+  return out.map(function (s) { return isoBox(s.x, s.y, 0, s.w, s.d, s.h, s.kind); });
+}
+
+/* Furniture as solids, mirroring the plan symbols. */
+function villaFurnitureSolids(level, W, D) {
+  var out = [];
+  villaRooms(level, W, D).forEach(function (r) {
+    var pad = 0.12, w = r.w, d = r.h, ox = r.x, oy = r.y;
+    function B(x, y, z, bw, bd, bh, k) { out.push(isoBox(ox + x, oy + y, z, bw, bd, bh, k)); }
+
+    if (r.type === "majlis") {
+      var sd = Math.min(0.80, w * 0.2, d * 0.2);
+      B(pad, pad, 0, w - 2 * pad, sd, 0.42, "seat");
+      B(pad, pad, 0, w - 2 * pad, 0.16, 0.78, "seat");
+      B(pad, pad + sd, 0, sd, d - 2 * pad - sd, 0.42, "seat");
+      B(pad, pad + sd, 0, 0.16, d - 2 * pad - sd, 0.78, "seat");
+      B(w - pad - sd, pad + sd, 0, sd, d - 2 * pad - sd, 0.42, "seat");
+      B(w - pad - 0.16, pad + sd, 0, 0.16, d - 2 * pad - sd, 0.78, "seat");
+      var rw = Math.max(0.5, w - 2 * (pad + sd) - 0.3), rh = Math.max(0.5, d - 2 * pad - sd - 0.5);
+      B((w - rw) / 2, pad + sd + 0.25, 0, rw, rh, 0.02, "green");
+      var tw = Math.min(1.1, rw * 0.55), th = Math.min(0.55, rh * 0.32);
+      B((w - tw) / 2, pad + sd + 0.25 + (rh - th) / 2, 0, tw, th, 0.40, "wood");
+
+    } else if (r.type === "living") {
+      var sofaD = Math.min(0.85, d * 0.2), sofaW = Math.min(2.4, w - 2 * pad - 0.4);
+      var sx = (w - sofaW) / 2, sy = d - pad - sofaD;
+      B(sx, sy, 0, sofaW, sofaD, 0.42, "soft");
+      B(sx, sy + sofaD - 0.18, 0, sofaW, 0.18, 0.80, "soft");
+      B(sx, sy, 0, 0.18, sofaD, 0.60, "soft");
+      B(sx + sofaW - 0.18, sy, 0, 0.18, sofaD, 0.60, "soft");
+      var tvW = Math.min(1.8, w * 0.5);
+      B((w - tvW) / 2, pad, 0, tvW, Math.min(0.42, d * 0.1), 0.50, "wood");
+      B((w - tvW) / 2 + tvW * 0.2, pad + 0.06, 0.50, tvW * 0.6, 0.06, 0.62, "step");
+      if (w > 3.2) { var ac = Math.min(0.75, w * 0.18); B(pad, d * 0.45, 0, ac, ac, 0.45, "soft"); }
+      var ctw = Math.min(1.1, w * 0.34), cth = Math.min(0.55, d * 0.13);
+      B((w - ctw) / 2, sy - cth - 0.35, 0, ctw, cth, 0.40, "wood");
+
+    } else if (r.type === "kitchen") {
+      var c = Math.min(0.62, w * 0.26, d * 0.22);
+      B(pad, pad, 0, w - 2 * pad, c, 0.90, "counter");
+      B(pad, pad + c, 0, c, d * 0.5, 0.90, "counter");
+      B(pad, pad + c + d * 0.5, 0, c, Math.min(0.7, d * 0.16), 1.80, "white");
+      var chair = 0.30, gap = 0.08;
+      var dw = Math.min(1.0, w - c - 2 * pad - 0.3), dh = Math.min(0.70, d * 0.18);
+      if (dw > 0.55 && dh > 0.38 && dh + 2 * (chair + gap) < d - 2 * pad - c) {
+        var dx = pad + c + (w - 2 * pad - c - dw) / 2, dy = d - pad - chair - gap - dh;
+        B(dx, dy, 0, dw, dh, 0.75, "wood");
+        for (var q = 0; q < 4; q++) {
+          var ax = dx + dw * (q < 2 ? 0.28 : 0.72) - 0.16;
+          var ay = (q % 2) ? dy + dh + gap : dy - gap - chair;
+          if (ay >= pad && ay + chair <= d - pad) {
+            B(ax, ay, 0, 0.32, chair, 0.45, "wood");
+            B(ax, ay + (q % 2 ? chair - 0.06 : 0), 0, 0.32, 0.06, 0.88, "wood");
+          }
+        }
+      }
+
+    } else if (r.type === "bed_master" || r.type === "bed") {
+      var isM = r.type === "bed_master";
+      var bw = Math.min(isM ? 1.8 : 1.2, w * 0.5), bh = Math.min(2.0, d * 0.48);
+      var bx = (w - bw) / 2, by = pad + 0.06;
+      B(bx, by, 0, bw, bh, 0.50, "soft");
+      B(bx, by, 0.50, bw, bh * 0.20, 0.12, "white");
+      B(bx, by - 0.08, 0, bw, 0.08, 0.95, "wood");
+      var nt = Math.min(0.45, (w - bw) / 2 - pad - 0.04);
+      if (nt > 0.22) { B(bx - nt - 0.05, by, 0, nt, nt, 0.50, "wood"); B(bx + bw + 0.05, by, 0, nt, nt, 0.50, "wood"); }
+      var ww = Math.min(2.0, w - 2 * pad), wd = Math.min(0.6, d * 0.15);
+      B((w - ww) / 2, d - pad - wd, 0, ww, wd, 2.00, "wood");
+      if (!isM && w > 2.8) { var dk = Math.min(1.0, w * 0.35); B(pad, d * 0.52, 0, dk, Math.min(0.55, d * 0.13), 0.75, "wood"); }
+
+    } else if (r.type === "bath" || r.type === "wc") {
+      var bs = Math.min(0.40, w * 0.26, d * 0.2);
+      B(pad, pad, 0.55, bs * 1.5, bs, 0.30, "white");
+      var ty = pad + bs + 0.28;
+      B(pad, ty, 0, bs * 0.95, bs * 0.36, 0.78, "white");
+      B(pad, ty + bs * 0.36, 0, bs * 0.95, bs * 0.85, 0.42, "white");
+      if (r.type === "bath") {
+        var sh = Math.min(0.95, w - 2 * pad - bs * 1.6 - 0.1, d * 0.38);
+        if (sh > 0.5) { B(w - pad - sh, d - pad - sh, 0, sh, sh, 0.06, "white"); }
+      }
+
+    } else if (r.type === "stair") {
+      var run = Math.min(d - 2 * pad, 3.4), fl = Math.min(1.1, w * 0.4), steps = 9;
+      var sx2 = pad + 0.08, sy2 = (d - run) / 2, rise = PART_H / steps, tread = run / steps;
+      for (var i = 0; i < steps; i++) {
+        B(sx2, sy2 + run - (i + 1) * tread, 0, fl, tread, rise * (i + 1), "step");
+      }
+
+    } else if (r.type === "entry") {
+      var cw = Math.min(1.1, w * 0.45);
+      B((w - cw) / 2, d - pad - 0.36, 0, cw, 0.36, 0.85, "wood");
+      var rw2 = Math.min(1.4, w * 0.5), rh2 = Math.min(0.9, d * 0.3);
+      B((w - rw2) / 2, d * 0.3, 0, rw2, rh2, 0.02, "green");
+    }
+  });
+  return out;
+}
+
+/* ---------------- the isometric renderer ---------------- */
+function isoSize(g) {
+  var W = g.bw, D = g.bd;
+  return { w: (W + D) * ISO_COS + 3.0, h: (W + D) * ISO_SIN + 2.6 + 2.4 };
+}
+
+/* Painter order for axis-aligned boxes under an isometric view from (+x,+y,+z).
+ * A centre-of-box key gets long thin runs wrong: a partition whose centre sits
+ * far forward is painted over the furniture standing behind it. Instead sort
+ * topologically on the only relation that actually holds — A is in front of B
+ * when A clears B entirely on an axis — and fall back to the centre key for
+ * any cycle so the result is always a total order. */
+function isoOrder(boxes) {
+  var n = boxes.length, after = [], indeg = new Array(n);
+  for (var i = 0; i < n; i++) { after.push([]); indeg[i] = 0; }
+  function inFront(a, b) {
+    return a.x >= b.x + b.w - 0.001 || a.y >= b.y + b.d - 0.001 || a.z >= b.z + b.h - 0.001;
+  }
+  for (var i2 = 0; i2 < n; i2++) {
+    for (var j = 0; j < n; j++) {
+      if (i2 === j) { continue; }
+      // j in front of i, and i not also in front of j (that would be a tie)
+      if (inFront(boxes[j], boxes[i2]) && !inFront(boxes[i2], boxes[j])) {
+        after[i2].push(j); indeg[j]++;
+      }
+    }
+  }
+  function key(b) { return (b.x + b.w / 2) + (b.y + b.d / 2) + b.z * 0.01; }
+  var ready = [], done = [], usedFlag = new Array(n);
+  for (var k = 0; k < n; k++) { if (!indeg[k]) { ready.push(k); } }
+  while (done.length < n) {
+    if (!ready.length) {
+      // cycle: release the farthest remaining box by centre key
+      var best = -1;
+      for (var c = 0; c < n; c++) {
+        if (usedFlag[c]) { continue; }
+        if (best < 0 || key(boxes[c]) < key(boxes[best])) { best = c; }
+      }
+      if (best < 0) { break; }
+      ready.push(best);
+    }
+    ready.sort(function (a, b) { return key(boxes[a]) - key(boxes[b]); });
+    var cur = ready.shift();
+    if (usedFlag[cur]) { continue; }
+    usedFlag[cur] = 1;
+    done.push(boxes[cur]);
+    after[cur].forEach(function (nx) {
+      if (--indeg[nx] === 0 && !usedFlag[nx]) { ready.push(nx); }
+    });
+  }
+  return done;
+}
+
+function drawIso(m, level) {
+  var g = m.g, W = g.bw, D = g.bd;
+  var ox = D * ISO_COS + 1.5, oy = 2.6;
+
+  function P(x, y, z) {
+    return f2(m.X(ox + (x - y) * ISO_COS)) + "," + f2(m.Y(oy + (x + y) * ISO_SIN - z));
+  }
+  function face(pts, fill, op) {
+    return '<polygon points="' + pts + '" fill="' + fill + '"' +
+      (op < 1 ? ' fill-opacity="' + op + '"' : "") + ' stroke="' + INK +
+      '" stroke-width="0.35" stroke-opacity="' + (op < 1 ? 0.55 : 1) +
+      '" stroke-linejoin="round"/>';
+  }
+  function solid(b) {
+    var mat = ISO_MAT[b.kind] || ISO_MAT.part;
+    /* Anything taller than the cut walls would hide the room behind it in a
+     * dollhouse view, so wardrobes and the fridge are drawn translucent. */
+    var op = b.h > 1.4 ? 0.5 : 1;
+    var x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.d, z0 = b.z, z1 = b.z + b.h, s = "";
+    // far faces first, then top
+    s += face([P(x1, y0, z0), P(x1, y1, z0), P(x1, y1, z1), P(x1, y0, z1)].join(" "), mat[1], op);
+    s += face([P(x0, y1, z0), P(x1, y1, z0), P(x1, y1, z1), P(x0, y1, z1)].join(" "), mat[2], op);
+    s += face([P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)].join(" "), mat[0], op);
+    return s;
+  }
+
+  var out = "";
+  // ground slab
+  out += solid(isoBox(-0.1, -0.1, -0.16, W + 0.2, D + 0.2, 0.16, "floor"));
+
+  var all = villaWalls(level, W, D).filter(function (b) {
+    // drop the two walls nearest the viewer so the interior stays open
+    return !(b.kind === "wall" && (b.y > D - WALL_EXT - 0.01 || b.x > W - WALL_EXT - 0.01));
+  });
+  /* The two remaining external walls sit behind everything by construction.
+   * A painter sort keyed on the box centre puts these long runs late and
+   * paints them over the furniture standing against them, so they are drawn
+   * up front as a backdrop and kept out of the sort. */
+  var backdrop = [], walls = [];
+  all.forEach(function (b) { (b.kind === "wall" ? backdrop : walls).push(b); });
+  backdrop.sort(function (a, b) { return (a.x + a.y) - (b.x + b.y); });
+  backdrop.forEach(function (b) { out += solid(b); });
+
+  var items = walls.concat(villaFurnitureSolids(level, W, D));
+  isoOrder(items).forEach(function (b) { out += solid(b); });
+
+  // room names floating over the floor
+  villaRooms(level, W, D).forEach(function (r) {
+    var cx = r.x + r.w / 2, cy = r.y + r.d === undefined ? 0 : r.y + r.h / 2;
+    var pt = P(cx, cy, PART_H + 0.55).split(",");
+    out += DRAW.tx(Number(pt[0]), Number(pt[1]), t(r.ar, r.en),
+      { size: 8, anchor: "middle", mono: false, weight: 500, rtl: true, fill: INK });
+  });
+  return out;
+}
+
 function buildSheet(key) {
   var W = 1160, H = 800, TB = 92, pad = 44, top = 40, bot = H - TB - 56;
   var g = geom(), meta = sheetMeta(key), spec = contentSize(key, g);
@@ -861,6 +1163,8 @@ function buildSheet(key) {
     interior: function (mm) { return bodyInterior(mm, "ground"); },
     interior2: function (mm) { return bodyInterior(mm, "first"); },
     finishes: bodyFinishes,
+    iso: function (mm) { return bodyIso(mm, "ground"); },
+    iso2: function (mm) { return bodyIso(mm, "first"); },
     elevation: bodyElevation, section: bodySection, parking: bodyParking, roof: bodyRoof
   }[key] || bodySite)(m);
 
@@ -1046,6 +1350,24 @@ function bodyFinishes(m) {
     "Finishes are generic proposals, not technical specifications or brand selections — the designer signs them off before construction."),
     { size: 7.8, mono: false, rtl: true, fill: THIN });
   return out;
+}
+
+/* ---------- A-109 / A-110 isometric interior views ---------- */
+function bodyIso(m, level) {
+  var g = m.g;
+  if (S.p.building_type !== "villa") {
+    return DRAW.tx(m.W / 2, 300, t("المنظور المجسم متاح لنمط الفيلا في هذه النسخة.",
+      "The axonometric view is available for the villa type in this release."),
+      { size: 11, anchor: "middle", mono: false, rtl: true });
+  }
+  var lvAr = level === "ground" ? "الدور الأرضي" : "الدور الأول";
+  var lvEn = level === "ground" ? "GROUND FLOOR" : "FIRST FLOOR";
+  return drawIso(m, level) +
+    DRAW.tx(52, m.H - 175, t("منظور مجسم مقطوع · " + lvAr, "CUTAWAY AXONOMETRIC · " + lvEn),
+      { size: 9, rtl: true }) +
+    DRAW.tx(52, m.H - 160, t("الجدران مخفّضة لإظهار الفراغ الداخلي · الأثاث استرشادي",
+      "walls cut down to reveal the interior · furniture indicative"),
+      { size: 7.6, fill: THIN, mono: false, rtl: true });
 }
 
 /* ---------- A-201 front elevation ---------- */
