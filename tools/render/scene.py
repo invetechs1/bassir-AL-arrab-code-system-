@@ -352,7 +352,7 @@ sky_sphere { pigment { gradient y
   scale 2 translate -1 } }
 
 light_source { <-14, 16, -20> color rgb <0.72,0.655,0.545>
-  area_light <2.6,0,0>, <0,0,2.6>, 7, 7 adaptive 0 circular orient }
+  area_light <2.6,0,0>, <0,0,2.6>, 7, 7 circular orient }
 // exterior context so the glazing shows a scene rather than flat blue
 plane { y, -0.19 texture { pigment { rgb <0.665,0.610,0.520> }
   normal { granite 0.02 scale 0.5 } finish { diffuse 0.6 ambient 0 } } }
@@ -388,7 +388,10 @@ def emit(level, cam, out_path, rad=""):
              f"  texture {{ T_Wall }}\n}}")
 
     # skirting
-    sk = "\n    ".join(f"object {{ {box(x, y, w, d, 0, 0.09)} }}" for x, y, w, d in wall_runs(level))
+    # skirting must stand proud of the wall; flush with it the two solids
+    # share side planes and POV-Ray has to pick a surface per ray
+    sk = "\n    ".join(f"object {{ {box(x - 0.014, y - 0.014, w + 0.028, d + 0.028, 0, 0.095)} }}"
+                       for x, y, w, d in wall_runs(level))
     L.append(f"difference {{\n  merge {{\n    {sk}\n  }}\n  union {{\n    {voids}\n  }}\n"
              f"  texture {{ T_White }}\n}}")
 
@@ -425,7 +428,7 @@ def emit(level, cam, out_path, rad=""):
         else:
             a1, a2 = f"<0,0,{span:.2f}>", f"<0,{(z1-z0):.2f},0>"
         L.append(f"light_source {{ <{cx:.2f},{cz:.2f},{cy:.2f}> color rgb <0.255,0.272,0.310>\n"
-                 f"  area_light {a1}, {a2}, 5, 5 adaptive 0 }}")
+                 f"  area_light {a1}, {a2}, 5, 5 }}")
 
     # curtains on poles, clear of the wall
     IN = {"n": (0, 1), "s": (0, -1), "w": (1, 0), "e": (-1, 0)}
@@ -490,7 +493,7 @@ def emit(level, cam, out_path, rad=""):
             L.append(f"object {{ {geo} texture {{ {tex} }} }}")
         used_codes.append("LGT-903")
         L.append(f"light_source {{ <{cx:.2f},{CEIL-0.78:.2f},{cy:.2f}> color rgb <0.16,0.147,0.126>\n"
-                 f"  area_light <0.22,0,0>, <0,0,0.22>, 5, 5 adaptive 0 circular orient }}")
+                 f"  area_light <0.22,0,0>, <0,0,0.22>, 5, 5 circular orient }}")
 
     # ceiling downlights, one per room
     for r in rooms:
@@ -498,7 +501,7 @@ def emit(level, cam, out_path, rad=""):
             continue
         cx, cy = r["x"] + r["w"] / 2, r["y"] + r["h"] / 2
         L.append(f"light_source {{ <{cx:.2f},{CEIL-0.12:.2f},{cy:.2f}> color rgb <0.115,0.107,0.094>\n"
-                 f"  area_light <0.40,0,0>, <0,0,0.40>, 5, 5 adaptive 0 circular orient }}")
+                 f"  area_light <0.40,0,0>, <0,0,0.40>, 5, 5 circular orient }}")
         L.append(f"object {{ {box(cx-0.18, cy-0.18, 0.36, 0.36, CEIL-0.03, CEIL-0.005)} "
                  f"texture {{ pigment {{ rgb <0.97,0.96,0.94> }} finish {{ diffuse 0.3 specular 0.2 ambient 0 }} }} }}")
 

@@ -448,10 +448,17 @@ def curtain(x, y, w, d, height, pole=True):
 
 
 def artwork(x, y, w, d, z0=1.20, z1=2.00):
+    """Frame with the print recessed inside it on every axis.
+
+    Sharing the frame's front and back planes would leave two coincident
+    surfaces for the renderer to choose between.
+    """
+    if w > d:
+        inner = (x + 0.035, y + 0.006, w - 0.07, max(d - 0.012, 0.004))
+    else:
+        inner = (x + 0.006, y + 0.035, max(w - 0.012, 0.004), d - 0.07)
     return [(bx(x, y, w, d, z0, z1), "M_Frame"),
-            (bx(x + 0.035 if w > d else x, y + 0.035 if d > w else y,
-                w - (0.07 if w > d else 0), d - (0.07 if d > w else 0),
-                z0 + 0.035, z1 - 0.035), "M_Art")]
+            (bx(inner[0], inner[1], inner[2], inner[3], z0 + 0.035, z1 - 0.035), "M_Art")]
 
 
 # ---------------------------------------------------------------- catalogue
