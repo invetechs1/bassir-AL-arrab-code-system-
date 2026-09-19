@@ -348,10 +348,15 @@ global_settings {
 
 // daylight: warm sun plus a bright sky the windows can see
 sky_sphere { pigment { gradient y
-  color_map { [0.0 rgb <0.74,0.79,0.86>][0.35 rgb <0.58,0.70,0.87>][1.0 rgb <0.34,0.50,0.78>] }
+  color_map { [0.00 rgb <2.50,2.44,2.32>][0.10 rgb <2.15,2.22,2.32>]
+              [0.35 rgb <1.55,1.90,2.38>][1.00 rgb <0.80,1.26,2.10>] }
   scale 2 translate -1 } }
+// sun disc, visible through the glazing
+sphere { <-1400, 1500, -1900>, 105
+  texture { pigment { rgb <9.0,8.4,7.2> } finish { ambient 1 diffuse 0 } }
+  no_shadow hollow }
 
-light_source { <-14, 16, -20> color rgb <0.72,0.655,0.545>
+light_source { <-14, 16, -20> color rgb <3.40,3.02,2.44>
   area_light <2.6,0,0>, <0,0,2.6>, 7, 7 circular orient }
 // exterior context so the glazing shows a scene rather than flat blue
 plane { y, -0.19 texture { pigment { rgb <0.665,0.610,0.520> }
@@ -366,7 +371,7 @@ object { sphere { <-4.5,3.8,-7>, 1.25 scale <1,0.55,1> } texture { T_Palm } }
 object { cylinder { <13,0,5>, <13,3.0,5>, 0.15 } texture { pigment { rgb <0.38,0.31,0.22> } finish { diffuse 0.6 ambient 0 } } }
 object { sphere { <13,3.35,5>, 1.1 scale <1,0.55,1> } texture { T_Palm } }
 
-light_source { <26, 15, 24> color rgb <0.07,0.08,0.10>
+light_source { <26, 15, 24> color rgb <0.055,0.065,0.082>
   area_light <3,0,0>, <0,0,3>, 2, 2 adaptive 1 jitter shadowless }
 """
 
@@ -427,7 +432,7 @@ def emit(level, cam, out_path, rad=""):
             a1, a2 = f"<{span:.2f},0,0>", f"<0,{(z1-z0):.2f},0>"
         else:
             a1, a2 = f"<0,0,{span:.2f}>", f"<0,{(z1-z0):.2f},0>"
-        L.append(f"light_source {{ <{cx:.2f},{cz:.2f},{cy:.2f}> color rgb <0.255,0.272,0.310>\n"
+        L.append(f"light_source {{ <{cx:.2f},{cz:.2f},{cy:.2f}> color rgb <0.52,0.57,0.68>\n"
                  f"  area_light {a1}, {a2}, 5, 5 }}")
 
     # curtains on poles, clear of the wall
@@ -492,7 +497,7 @@ def emit(level, cam, out_path, rad=""):
         for geo, tex in LIB.pendant(cx, cy, CEIL):
             L.append(f"object {{ {geo} texture {{ {tex} }} }}")
         used_codes.append("LGT-903")
-        L.append(f"light_source {{ <{cx:.2f},{CEIL-0.78:.2f},{cy:.2f}> color rgb <0.16,0.147,0.126>\n"
+        L.append(f"light_source {{ <{cx:.2f},{CEIL-0.78:.2f},{cy:.2f}> color rgb <0.44,0.40,0.35>\n"
                  f"  area_light <0.22,0,0>, <0,0,0.22>, 5, 5 circular orient }}")
 
     # ceiling downlights, one per room
@@ -500,7 +505,7 @@ def emit(level, cam, out_path, rad=""):
         if r["w"] * r["h"] < 7:
             continue
         cx, cy = r["x"] + r["w"] / 2, r["y"] + r["h"] / 2
-        L.append(f"light_source {{ <{cx:.2f},{CEIL-0.12:.2f},{cy:.2f}> color rgb <0.115,0.107,0.094>\n"
+        L.append(f"light_source {{ <{cx:.2f},{CEIL-0.12:.2f},{cy:.2f}> color rgb <0.11,0.103,0.090>\n"
                  f"  area_light <0.40,0,0>, <0,0,0.40>, 5, 5 circular orient }}")
         L.append(f"object {{ {box(cx-0.18, cy-0.18, 0.36, 0.36, CEIL-0.03, CEIL-0.005)} "
                  f"texture {{ pigment {{ rgb <0.97,0.96,0.94> }} finish {{ diffuse 0.3 specular 0.2 ambient 0 }} }} }}")
@@ -509,7 +514,7 @@ def emit(level, cam, out_path, rad=""):
     return sorted(set(used_codes))
 
 def camera_for(level, room_key, eye=(0.88, 0.86), target=(0.30, 0.22),
-               h=1.52, th=1.05, angle=62):
+               h=1.52, th=1.05, angle=62, aperture=0.0, blur=9):
     """Camera placed by fractions of the room rect, so framing is deliberate.
 
     eye/target are (fx, fy) fractions of the room's own rectangle.
@@ -542,5 +547,9 @@ def camera_for(level, room_key, eye=(0.88, 0.86), target=(0.30, 0.22),
             _, ex, ez = best
         else:
             raise SystemExit(f"no clear camera position in {room_key}")
+    dist = ((ex - tx) ** 2 + (ez - tz) ** 2) ** 0.5
+    dof = ("" if aperture <= 0 else
+           f"\n  aperture {aperture:.3f} focal_point <{tx:.2f},{th},{tz:.2f}> "
+           f"blur_samples {blur} confidence 0.90 variance 1/64")
     return (f"camera {{ perspective location <{ex:.2f},{h},{ez:.2f}> "
-            f"look_at <{tx:.2f},{th},{tz:.2f}> angle {angle} }}")
+            f"look_at <{tx:.2f},{th},{tz:.2f}> angle {angle}{dof} }}")

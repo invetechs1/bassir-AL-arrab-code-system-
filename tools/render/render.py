@@ -23,25 +23,32 @@ def main():
     ap.add_argument("--width", type=int, default=1400)
     ap.add_argument("--height", type=int, default=900)
     ap.add_argument("--only", default=None, help="render a single view by name")
+    ap.add_argument("--exposure", type=float, default=0.55,
+                    help="tone-mapping exposure applied to the HDR")
     args = ap.parse_args()
 
-    import scene
+    import scene, post
     os.makedirs(args.out_dir, exist_ok=True)
     for name, level, room, cam in VIEWS:
         if args.only and args.only != name:
             continue
         pov = os.path.join(args.out_dir, f"{name}.pov")
+        hdr = os.path.join(args.out_dir, f"{name}.hdr")
         png = os.path.join(args.out_dir, f"render-{name}.png")
         scene.emit(level, scene.camera_for(level, room, **cam), pov)
         t0 = time.time()
-        r = subprocess.run(["povray", f"+I{pov}", f"+O{png}",
+        # render linear HDR, then tone map: clipping to 8 bit in the renderer
+        # throws away every highlight the grade needs
+        r = subprocess.run(["povray", f"+I{pov}", f"+O{hdr}",
                             f"+W{args.width}", f"+H{args.height}",
-                            "+A0.3", "-D", "+Q9", "+AM2", "+R2"],
+                            "+A0.3", "-D", "+Q9", "+AM2", "+R2", "+FH"],
                            capture_output=True, text=True)
-        ok = "ok" if r.returncode == 0 else "FAILED"
-        print(f"{name}: {ok} in {time.time() - t0:.0f}s", flush=True)
         if r.returncode:
+            print(f"{name}: FAILED in {time.time() - t0:.0f}s", flush=True)
             print(r.stderr[-800:], file=sys.stderr)
+            continue
+        post.grade(hdr, png, exposure=args.exposure, temp=1.03, bloom_strength=0.11)
+        print(f"{name}: ok in {time.time() - t0:.0f}s -> {png}", flush=True)
 
 
 if __name__ == "__main__":

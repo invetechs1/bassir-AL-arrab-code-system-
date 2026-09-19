@@ -521,12 +521,12 @@ MATERIALS = """
 }
 #declare M_Fabric = texture {
   pigment { rgb <0.560,0.552,0.524> }
-  normal { bumps 0.34 scale 0.0075 }
+  normal { bumps 0.32 scale 0.0062 }
   finish { diffuse 0.70 specular 0.045 roughness 0.42 ambient 0 }
 }
 #declare M_FabricAlt = texture {
   pigment { rgb <0.492,0.494,0.476> }
-  normal { bumps 0.30 scale 0.008 }
+  normal { bumps 0.30 scale 0.0068 }
   finish { diffuse 0.70 specular 0.05 roughness 0.40 ambient 0 }
 }
 #declare M_Majlis = texture {
