@@ -111,6 +111,179 @@ def rbox(x, y, w, d, z0, z1, r=0.06):
     return (f"superellipsoid {{ <{e:.3f},{e:.3f}> scale <{sx:.3f},{sy:.3f},{sz:.3f}> "
             f"translate <{cx:.3f},{cy:.3f},{cz:.3f}> }}")
 
+
+# ------------------------------------------------------- detailed furniture
+# The solids coming out of the drawing engine are massing boxes. Rendered
+# literally a chair is a slab and a wardrobe is a block, so each solid is
+# classified by (kind, height, footprint) and rebuilt as real geometry.
+
+def legs(x, y, w, d, top, sec=0.045, tex="T_Wood", inset=0.06):
+    out = []
+    for lx in (x + inset, x + w - inset - sec):
+        for ly in (y + inset, y + d - inset - sec):
+            out.append((box(lx, ly, sec, sec, 0, top), tex))
+    return out
+
+
+def chair(b, away=None):
+    """Seat slab on four legs, with the back turned away from `away`.
+
+    `away` is the point the chair faces (the table centre); without it every
+    chair round a table ends up with its back on the same side.
+    """
+    x, y, w, d = b["x"], b["y"], b["w"], b["d"]
+    seat_h, out = 0.44, []
+    out += legs(x, y, w, d, seat_h, 0.035)
+    out.append((box(x, y, w, d, seat_h, seat_h + 0.05), "T_Wood"))
+    cx, cy = x + w / 2, y + d / 2
+    ax, ay = away if away else (cx, cy - 1)
+    if abs(cx - ax) > abs(cy - ay):
+        far = x if cx < ax else x + w - 0.045
+        out.append((box(far, y + 0.02, 0.045, d - 0.04, seat_h, seat_h + 0.46), "T_Wood"))
+    else:
+        far = y if cy < ay else y + d - 0.045
+        out.append((box(x + 0.02, far, w - 0.04, 0.045, seat_h, seat_h + 0.46), "T_Wood"))
+    return out
+
+
+def table(b, thickness=0.04):
+    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
+    out = legs(x, y, w, d, h - thickness, 0.055)
+    out.append((box(x - 0.02, y - 0.02, w + 0.04, d + 0.04, h - thickness, h), "T_Wood"))
+    return out
+
+
+def cabinet(b, tex="T_Wood", doors=None, handle=True, plinth=0.09):
+    """Carcass with door panels set back behind a reveal, plus handles."""
+    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
+    out = [(box(x, y, w, d, plinth, h), tex)]
+    if plinth:
+        out.append((box(x + 0.03, y + 0.03, w - 0.06, d - 0.06, 0, plinth), "T_Wall"))
+    horiz = w >= d
+    span = w if horiz else d
+    n = doors or max(1, int(round(span / 0.55)))
+    for i in range(n):
+        f0, f1 = i / n, (i + 1) / n
+        if horiz:
+            dx0, dx1 = x + w * f0 + 0.008, x + w * f1 - 0.008
+            out.append((box(dx0, y + d - 0.018, dx1 - dx0, 0.018, plinth + 0.012, h - 0.012), "T_CabDoor"))
+            if handle:
+                hx = (dx0 + dx1) / 2 - 0.055
+                out.append((box(hx, y + d - 0.034, 0.11, 0.016, h - 0.14, h - 0.115), "T_Metal"))
+        else:
+            dy0, dy1 = y + d * f0 + 0.008, y + d * f1 - 0.008
+            out.append((box(x + w - 0.018, dy0, 0.018, dy1 - dy0, plinth + 0.012, h - 0.012), "T_CabDoor"))
+            if handle:
+                hy = (dy0 + dy1) / 2 - 0.055
+                out.append((box(x + w - 0.034, hy, 0.016, 0.11, h - 0.14, h - 0.115), "T_Metal"))
+    return out
+
+
+def worktop(b):
+    """Base units with a stone worktop overhanging the doors."""
+    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
+    out = cabinet({"x": x, "y": y, "w": w, "d": d, "h": h - 0.04}, tex="T_Wall")
+    out.append((box(x - 0.015, y - 0.02, w + 0.03, d + 0.04, h - 0.04, h), "T_Stone"))
+    return out
+
+
+def bed(b):
+    """Mattress, duvet with a turned-back fold, and two pillows."""
+    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
+    out = [(box(x + 0.04, y + 0.04, w - 0.08, d - 0.08, 0, 0.26), "T_Wood")]          # base
+    out.append((rbox(x, y, w, d, 0.26, h, 0.05), "T_Pillow"))                          # mattress
+    out.append((rbox(x - 0.02, y + d * 0.30, w + 0.04, d * 0.70, h - 0.02, h + 0.11, 0.06), "T_Duvet"))
+    out.append((rbox(x - 0.02, y + d * 0.30, w + 0.04, 0.16, h + 0.02, h + 0.13, 0.05), "T_Duvet"))
+    pw = (w - 0.14) / 2
+    for i in (0, 1):
+        px = x + 0.045 + i * (pw + 0.05)
+        out.append((rbox(px, y + 0.07, pw, d * 0.17, h, h + 0.13, 0.055), "T_Pillow"))
+    return out
+
+
+def sofa_seat(b):
+    """Upholstered base with separate seat cushions."""
+    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
+    out = [(rbox(x, y, w, d, 0.10, h - 0.10, 0.05), "T_FabricGrey")]
+    out += legs(x, y, w, d, 0.10, 0.04, "T_Wood", 0.05)
+    n = max(1, int(round(w / 0.75))) if w >= d else max(1, int(round(d / 0.75)))
+    for i in range(n):
+        f0, f1 = i / n, (i + 1) / n
+        if w >= d:
+            cx0, cx1 = x + w * f0 + 0.012, x + w * f1 - 0.012
+            out.append((rbox(cx0, y + 0.03, cx1 - cx0, d - 0.06, h - 0.10, h + 0.03, 0.05), "T_FabricGrey"))
+        else:
+            cy0, cy1 = y + d * f0 + 0.012, y + d * f1 - 0.012
+            out.append((rbox(x + 0.03, cy0, w - 0.06, cy1 - cy0, h - 0.10, h + 0.03, 0.05), "T_FabricGrey"))
+    return out
+
+
+def bench(b):
+    """Majlis seat with individual cushions."""
+    x, y, w, d, h = b["x"], b["y"], b["w"], b["d"], b["h"]
+    out = [(box(x, y, w, d, 0, h - 0.10), "T_Wood")]
+    n = max(1, int(round((w if w >= d else d) / 0.62)))
+    for i in range(n):
+        f0, f1 = i / n, (i + 1) / n
+        if w >= d:
+            a, bb = x + w * f0 + 0.012, x + w * f1 - 0.012
+            out.append((rbox(a, y + 0.02, bb - a, d - 0.04, h - 0.10, h + 0.04, 0.05), "T_FabricGreen"))
+        else:
+            a, bb = y + d * f0 + 0.012, y + d * f1 - 0.012
+            out.append((rbox(x + 0.02, a, w - 0.04, bb - a, h - 0.10, h + 0.04, 0.05), "T_FabricGreen"))
+    return out
+
+
+def _table_near(b, solids):
+    """Centre of the closest tabletop, so chairs can be turned to face it."""
+    best = None
+    for o in solids:
+        if o["kind"] != "wood" or not (0.60 <= round(o["h"], 2) <= 0.90):
+            continue
+        if o["w"] * o["d"] < 0.25:
+            continue
+        cx, cy = o["x"] + o["w"] / 2, o["y"] + o["d"] / 2
+        dist = (cx - b["x"]) ** 2 + (cy - b["y"]) ** 2
+        if best is None or dist < best[0]:
+            best = (dist, cx, cy)
+    return (best[1], best[2]) if best else None
+
+
+def detail_solid(b, solids=()):
+    """Return [(geometry, texture)] for one massing box, or None to fall back.
+
+    Ordering matters: a bed and a sofa base are both soft solids about half a
+    metre tall, and a chair seat and a bedside table are both low wood boxes.
+    """
+    k, h = b["kind"], round(b["h"], 2)
+    foot = b["w"] * b["d"]
+    thin = min(b["w"], b["d"]) < 0.12
+
+    if k == "wood":
+        if 0.85 <= h <= 0.92 and thin:          return []            # chair back, drawn by chair()
+        if h <= 0.47 and foot <= 0.16:          return chair(b, _table_near(b, solids))
+        if h >= 1.5:                            return cabinet(b, doors=max(2, int(b["w"] / 0.6)))
+        if 0.90 <= h <= 1.05 and thin:          return [(rbox(b["x"], b["y"], b["w"], b["d"],
+                                                              b["z"], b["z"] + b["h"], 0.03), "T_Wood")]
+        if 0.44 <= h <= 0.56 and foot <= 0.32:  return cabinet(b, plinth=0.04, doors=1)
+        if 0.44 <= h <= 0.56:                   return cabinet(b, plinth=0.05)
+        if 0.60 <= h <= 0.90:                   return table(b)
+        if h <= 0.44:                           return table(b, 0.035)
+        return None
+
+    if k == "soft":
+        if 0.47 <= h <= 0.53 and foot >= 1.5:   return bed(b)
+        if h <= 0.46 and foot >= 0.9:           return sofa_seat(b)
+        return None
+
+    if k == "seat" and h <= 0.5:                return bench(b)
+    if k == "counter":                          return worktop(b)
+    if k == "white" and h >= 1.5:               return cabinet(b, tex="T_White", doors=1)
+    # pillow band sits on the mattress; a shower tray is on the floor
+    if k == "white" and h <= 0.14 and b["z"] > 0.3: return []        # drawn by bed()
+    return None
+
+
 # ---------------------------------------------------------------- scene text
 HEADER = """#version 3.7;
 #include "colors.inc"
@@ -131,8 +304,10 @@ global_settings {
 }
 
 #declare T_Floor = texture {
-  pigment { rgb <0.845,0.825,0.795> }
-  normal { granite 0.012 scale 0.4 }
+  // 600 x 600 porcelain with a grout joint
+  pigment { brick rgb <0.660,0.645,0.622>, rgb <0.858,0.840,0.812>
+            brick_size <0.60,4,0.60> mortar 0.007 }
+  normal { brick 0.30 brick_size <0.60,4,0.60> mortar 0.007 }
   finish { diffuse 0.62 specular 0.35 roughness 0.0035
            reflection { 0.030 } conserve_energy ambient 0 }
 }
@@ -156,7 +331,7 @@ global_settings {
 }
 #declare T_Wood = texture {
   pigment { wood color_map { [0.0 rgb <0.400,0.268,0.160>][0.55 rgb <0.470,0.325,0.196>]
-                             [1.0 rgb <0.345,0.222,0.130>] } turbulence 0.32 scale <0.16,0.16,1.6> }
+                             [1.0 rgb <0.345,0.222,0.130>] } turbulence 0.16 scale <0.26,0.26,2.4> }
   finish { diffuse 0.56 specular 0.30 roughness 0.006
            reflection { 0.015 } conserve_energy ambient 0 }
 }
@@ -195,6 +370,26 @@ global_settings {
   pigment { marble turbulence 0.6 color_map { [0 rgb <0.80,0.76,0.70>][0.5 rgb <0.52,0.55,0.53>]
                                               [1 rgb <0.35,0.40,0.42>] } scale 0.5 }
   finish { diffuse 0.6 specular 0.08 ambient 0 }
+}
+#declare T_Metal = texture {
+  pigment { rgb <0.62,0.63,0.645> }
+  finish { diffuse 0.25 specular 0.85 roughness 0.008 metallic
+           reflection { 0.34 metallic } conserve_energy ambient 0 }
+}
+#declare T_Duvet = texture {
+  pigment { rgb <0.900,0.895,0.880> }
+  normal { bumps 0.18 scale 0.09 }
+  finish { diffuse 0.74 specular 0.04 roughness 0.4 ambient 0 }
+}
+#declare T_Pillow = texture {
+  pigment { rgb <0.955,0.950,0.940> }
+  normal { bumps 0.22 scale 0.05 }
+  finish { diffuse 0.76 specular 0.05 roughness 0.35 ambient 0 }
+}
+#declare T_CabDoor = texture {
+  pigment { rgb <0.905,0.898,0.884> }
+  finish { diffuse 0.52 specular 0.36 roughness 0.006
+           reflection { 0.028 } conserve_energy ambient 0 }
 }
 #declare T_Glass = texture {
   pigment { rgbf <1.0,1.0,1.0,0.992> }
@@ -251,8 +446,13 @@ def emit(level, cam, out_path, rad=""):
     for x, y, w, d, z0, z1, side in glass(level):
         L.append(f"object {{ {box(x, y, w, d, z0, z1)} texture {{ T_Glass }} interior {{ I_Glass }} }}")
 
-    # furniture
+    # furniture, rebuilt as real geometry where a massing box would read badly
     for b in G[level]["furn"]:
+        pieces = detail_solid(b, G[level]["furn"])
+        if pieces is not None:
+            for geo, tex in pieces:
+                L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+            continue
         tex = TEX.get(b["kind"], "T_Wall")
         z0, z1 = b["z"], b["z"] + b["h"]
         geo = (rbox(b["x"], b["y"], b["w"], b["d"], z0, z1)
