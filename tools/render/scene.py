@@ -244,12 +244,16 @@ def dress(code, b, r, face, head=None):
     cx, cy = x + w / 2, y + d / 2
     out = []
     if code == "SOF-301":
-        out += LIB.cushions(x, y, w, d, face, 0.42)
-        out += LIB.throw(x, y, w, d, face, 0.42)
+        # keep the cushions clear of the rolled arms
+        ax, aw = (x + 0.20, w - 0.40) if w >= d else (x, w)
+        ay, ad = (y, d) if w >= d else (y + 0.20, d - 0.40)
+        out += LIB.cushions(ax, ay, aw, ad, face, 0.46, back=0.17)
+        out += LIB.throw(x, y, w, d, face, 0.46)
     elif code == "MAJ-201":
-        out += LIB.cushions(x, y, w, d, face, 0.42, n=max(2, int(max(w, d) / 0.95)))
+        out += LIB.cushions(x, y, w, d, face, 0.46,
+                            n=max(2, int(max(w, d) / 0.95)), back=0.16)
     elif code == "ARM-101":
-        out += LIB.cushions(x, y, w, d, face, 0.42, n=1)
+        out += LIB.cushions(x, y, w, d, face, 0.46, n=1, back=0.17)
     elif code == "TBL-401":                      # coffee table
         top = b["z"] + h
         along_x = w >= d
@@ -307,11 +311,11 @@ HEADER = """#version 3.7;
 
 global_settings {
   assumed_gamma 1.0
-  max_trace_level 7
+  max_trace_level 5
   radiosity {
     pretrace_start 0.08 pretrace_end 0.015
-    count 360 nearest_count 18 error_bound 0.24
-    recursion_limit 3 low_error_factor 0.5
+    count 330 nearest_count 17 error_bound 0.27
+    recursion_limit 2 low_error_factor 0.5
     gray_threshold 0 minimum_reuse 0.008 maximum_reuse 0.05
     brightness 1 adc_bailout 0.02 always_sample off
     normal off media off
@@ -414,10 +418,9 @@ global_settings {
 #declare T_Glass = texture {
   pigment { rgbf <0.994,0.998,0.992,0.968> }
   finish { diffuse 0.0 specular 0.30 roughness 0.0006
-           reflection { 0.035, 1.0 fresnel on } conserve_energy ambient 0 }
+           reflection { 0.045, 0.62 falloff 3.6 } conserve_energy ambient 0 }
 }
-#declare I_Glass = interior { ior 1.52
-  fade_distance 9 fade_power 1001 fade_color <0.88,0.955,0.92> }
+#declare I_Glass = interior { ior 1.0 }
 
 // daylight: warm sun plus a bright sky the windows can see
 sky_sphere { pigment { gradient y
@@ -454,7 +457,7 @@ object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
 // one frond: a long tapered blade that lifts, then droops under its own weight
 #macro Frond(len, droop)
   union {
-    #local N = 9;
+    #local N = 7;
     #local i = 0;
     #while (i < N)
       #local t0 = i / N;  #local t1 = (i + 1) / N;
@@ -481,7 +484,7 @@ object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
   union {
     cone { <0,0,0>, 0.21, <lean * h * 0.06, h, lean * h * 0.03>, 0.145 texture { T_Trunk } }
     #local k = 0;
-    #while (k < 14)
+    #while (k < 11)
       #local a = k * 25.7 + S * 13;
       #local tilt = 8 + mod(k * 37 + S, 46);
       object { Frond(2.05 + mod(k * 17 + S, 7) * 0.075, 0.30 + mod(k * 11 + S, 5) * 0.035)
@@ -505,7 +508,6 @@ object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
 
 object { Palm(-4.9, -7.4, 4.3, 0.18, 2) }
 object { Palm(13.2, 5.1, 3.7, -0.12, 9) }
-object { Palm(-7.8, -9.6, 4.9, 0.07, 5) }
 
 // clipped hedge along the boundary, so the ground is not an empty sand plane
 #declare T_Hedge = texture { pigment { rgb <0.150,0.206,0.122> }
@@ -529,7 +531,7 @@ def emit(level, cam, out_path, rad=""):
     L.append(cam)
 
     # floor slab and ceiling
-    L.append(f"object {{ {box(-0.3, -0.3, W + 0.6, D + 0.6, -0.18, 0.0)} texture {{ T_Floor }} }}")
+    L.append(f"object {{ {box(-0.3, -0.3, W + 0.6, D + 0.6, -0.18, 0.004)} texture {{ T_Floor }} }}")
     L.append(f"object {{ {box(-0.3, -0.3, W + 0.6, D + 0.6, CEIL, CEIL + 0.22)} texture {{ T_Ceiling }} }}")
 
     # wall system with door and window voids cut out

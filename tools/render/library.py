@@ -462,7 +462,7 @@ def curtain(x, y, w, d, height, pole=True):
         else:
             cx, cy = x + w / 2, y + t
         folds.append(cyl(cx, cy, 0.015, height, rr))
-    out = [("merge { " + " ".join(f for f in folds if f) + " }", "M_Curtain")]
+    out = [("union { " + " ".join(f for f in folds if f) + " }", "M_Curtain")]
     if pole:
         if w >= d:
             out.append((cyl_h(x - 0.08, x + w + 0.08, y + d / 2, height + 0.06, 0.016, "x"), "M_Metal"))
@@ -700,7 +700,7 @@ MATERIALS = """
 #declare M_Brass = texture {
   pigment { rgb <0.560,0.442,0.222> }
   finish { diffuse 0.16 specular 0.68 roughness 0.006 metallic
-           reflection { 0.38 metallic } conserve_energy ambient 0 }
+           reflection { 0.22 metallic } conserve_energy ambient 0 }
 }
 #declare M_BookA = texture { pigment { rgb <0.352,0.146,0.126> } finish { diffuse 0.55 specular 0.10 roughness 0.05 ambient 0 } }
 #declare M_BookB = texture { pigment { rgb <0.180,0.226,0.268> } finish { diffuse 0.55 specular 0.10 roughness 0.05 ambient 0 } }
@@ -728,25 +728,34 @@ def _face_vec(face):
     return {"n": (0, 1), "s": (0, -1), "e": (1, 0), "w": (-1, 0)}[face]
 
 
-def cushions(x, y, w, d, face, seat_top=0.42, n=None):
-    """Scatter cushions along the back of a sofa or bench."""
+def cushions(x, y, w, d, face, seat_top=0.42, n=None, back=0.16):
+    """Scatter cushions standing against the back of a sofa or bench.
+
+    Squashing a sphere vertically makes a pebble lying on the seat; a cushion
+    is a flattened slab standing up, tipped back against the backrest, so the
+    squash goes along the wall normal instead.
+    """
     fx, fy = _face_vec(face)
-    run = w if abs(fx) < abs(fy) or w >= d else d
     along_x = w >= d
+    run = w if along_x else d
     n = n if n is not None else max(2, min(4, int(run / 0.85)))
+    cw, ct, ch = 0.42, 0.135, 0.40          # width, thickness, height
     out = []
     for i in range(n):
         t = (i + 0.5) / n
-        # sit the cushion just off the back cushion, tipped forward a little
-        if along_x:
-            cx = x + t * w
-            cy = y + d / 2 - fy * (d * 0.24)
-        else:
-            cx = x + w / 2 - fx * (w * 0.24)
-            cy = y + t * d
-        sz = 0.215 + 0.025 * (i % 2)
+        sc = 0.92 + 0.12 * (i % 2)          # no two cushions the same size
         tex = "M_Cushion" if i % 2 == 0 else "M_CushionAlt"
-        out.append((sph(cx, cy, seat_top + sz * 0.78, sz, 1.0, 0.46, 1.0), tex))
+        if along_x:
+            cx0 = x + t * w - cw * sc / 2
+            cy0 = (y + d - back - 0.01 - ct) if fy > 0 else (y + back + 0.01)
+            geo = rb(cx0, cy0, cw * sc, ct, seat_top + 0.005,
+                     seat_top + ch * sc, 0.055)
+        else:
+            cy0 = y + t * d - cw * sc / 2
+            cx0 = (x + w - back - 0.01 - ct) if fx > 0 else (x + back + 0.01)
+            geo = rb(cx0, cy0, ct, cw * sc, seat_top + 0.005,
+                     seat_top + ch * sc, 0.055)
+        out.append((geo, tex))
     return out
 
 
