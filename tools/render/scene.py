@@ -696,14 +696,36 @@ def camera_for(level, room_key, eye=(0.88, 0.86), target=(0.30, 0.22),
     ex, ez = r["x"] + r["w"] * eye[0], r["y"] + r["h"] * eye[1]
     tx, tz = r["x"] + r["w"] * target[0], r["y"] + r["h"] * target[1]
 
-    def blocked(px, pz):
-        """True if the eye sits inside a piece of furniture at eye height."""
+    def blocked(px, pz, clear=0.22, any_height=False):
+        """True if the eye is inside, or too close to, a piece of furniture.
+
+        Testing only at eye height lets the camera stand directly over a table:
+        nothing occupies 1.52 m there, but a table top 300 mm from the lens
+        still fills the bottom half of the frame as a dark slab. `any_height`
+        keeps a working distance from everything, whatever its height.
+        """
         for f in G[level]["furn"]:
-            if (f["x"] - 0.22 <= px <= f["x"] + f["w"] + 0.22 and
-                    f["y"] - 0.22 <= pz <= f["y"] + f["d"] + 0.22 and
-                    f["z"] <= h <= f["z"] + f["h"]):
+            if (f["x"] - clear <= px <= f["x"] + f["w"] + clear and
+                    f["y"] - clear <= pz <= f["y"] + f["d"] + clear and
+                    (any_height or f["z"] <= h <= f["z"] + f["h"])):
                 return True
         return False
+
+    # prefer a spot with a real working distance from every piece; fall back to
+    # the height test alone rather than fail in a room that is simply tight
+    if blocked(ex, ez, 0.60, any_height=True):
+        for cl, ah in ((0.60, True), (0.40, True), (0.22, False)):
+            cands = []
+            for fx in (0.08, 0.5, 0.92, 0.2, 0.8, 0.35, 0.65):
+                for fy in (0.92, 0.08, 0.5, 0.8, 0.2, 0.65, 0.35):
+                    cx2 = r["x"] + r["w"] * fx
+                    cz2 = r["y"] + r["h"] * fy
+                    if blocked(cx2, cz2, cl, any_height=ah):
+                        continue
+                    cands.append(((cx2 - tx) ** 2 + (cz2 - tz) ** 2, cx2, cz2))
+            if cands:
+                _, ex, ez = max(cands)
+                break
 
     if blocked(ex, ez):
         # slide along the room edges until the eye is in clear air
