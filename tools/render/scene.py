@@ -3,6 +3,7 @@
 Plan coords are (x right, y depth) with z up; POV-Ray is y-up, so plan (x, y)
 maps to POV (x, _, y) and heights go to POV y.
 """
+import re
 import json, math, os, sys
 
 GEOM_PATH = os.environ.get("VILLA_GEOM", "villa_geom.json")
@@ -279,8 +280,16 @@ def dress(code, b, r, face, head=None):
     return out
 
 
-def corner_props(level, rooms, solids):
-    """One floor plant and one floor lamp per living space, in a free corner."""
+def corner_props(level, rooms, solids, eye=None):
+    """One floor plant and one floor lamp per living space, in a free corner.
+
+    `camera_for` only knows about the scheduled furniture, so a prop dropped in
+    a corner can end up wrapped around the lens - which is exactly what put the
+    living-room camera inside a plant. Keep the props clear of the eye.
+    """
+    def near_eye(px, py):
+        return eye is not None and (px - eye[0]) ** 2 + (py - eye[1]) ** 2 < 1.45 ** 2
+
     out = []
     for r in rooms:
         if r["type"] not in ("living", "majlis", "family", "dining", "bed_master", "bed"):
@@ -291,6 +300,8 @@ def corner_props(level, rooms, solids):
                  (x0 + 0.52, y1 - 0.52), (x1 - 0.52, y1 - 0.52)]
         free = []
         for sx, sy in spots:
+            if near_eye(sx, sy):
+                continue
             if all(not (b["x"] - 0.34 < sx < b["x"] + b["w"] + 0.34 and
                         b["y"] - 0.34 < sy < b["y"] + b["d"] + 0.34)
                    for b in solids):
@@ -577,7 +588,9 @@ def emit(level, cam, out_path, rad=""):
                else box(b["x"], b["y"], b["w"], b["d"], z0, z1))
         L.append(f"object {{ {geo} texture {{ {tex} }} }}")
 
-    for geo, tex in corner_props(level, rooms, G[level]["furn"]):
+    m = re.search(r"location <([-\d.]+),([-\d.]+),([-\d.]+)>", cam)
+    eye_xz = (float(m.group(1)), float(m.group(3))) if m else None
+    for geo, tex in corner_props(level, rooms, G[level]["furn"], eye_xz):
         if geo:
             L.append(f"object {{ {geo} texture {{ {tex} }} }}")
 
