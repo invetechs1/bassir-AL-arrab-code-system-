@@ -317,10 +317,7 @@ def corner_props(level, rooms, solids, eye=None):
                         b["y"] - 0.34 < sy < b["y"] + b["d"] + 0.34)
                    for b in solids):
                 free.append((sx, sy))
-        if free:
-            px, py = free[0]
-            out += LIB.potted_plant(px, py, 1.10 if r["type"] in ("living", "majlis", "family") else 0.82)
-        if len(free) > 1 and r["type"] in ("living", "majlis", "family"):
+        if free and r["type"] in ("living", "majlis", "family"):
             lx, ly = free[-1]
             out += LIB.floor_lamp(lx, ly)
     return out
@@ -659,7 +656,11 @@ def emit(level, cam, out_path, rad=""):
             pz = min(max(r["y"] + r["h"] * fy, r["y"] + 0.36), r["y"] + r["h"] - 0.36)
             if not free(px - 0.28, pz - 0.28, 0.56, 0.56):
                 continue
-            for geo, tex in LIB.planter(px, pz):
+            if eye_xz and (px - eye_xz[0]) ** 2 + (pz - eye_xz[1]) ** 2 < 1.45 ** 2:
+                continue
+            for geo, tex in LIB.potted_plant(px, pz,
+                                             1.10 if r["type"] in ("living", "majlis", "family")
+                                             else 0.82):
                 L.append(f"object {{ {geo} texture {{ {tex} }} }}")
             used_codes.append("PLT-902")
             break

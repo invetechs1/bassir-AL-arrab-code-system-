@@ -420,16 +420,6 @@ def rug(x, y, w, d):
             (bx(x + 0.09, y + 0.09, w - 0.18, d - 0.18, 0.018, 0.0195), "M_RugField")]
 
 
-def planter(cx, cy, r=0.22):
-    out = [(f"cone {{ <{cx:.3f},0,{cy:.3f}>, {r*0.78:.3f}, <{cx:.3f},{0.36:.3f},{cy:.3f}>, {r:.3f} }}",
-            "M_Pot")]
-    out.append((cyl(cx, cy, 0.36, 0.52, 0.035), "M_Stem"))
-    for ox, oy, rr, hh, zz in ((0, 0, 0.44, 0.52, 0.86), (0.20, 0.13, 0.33, 0.40, 0.70),
-                               (-0.17, -0.12, 0.29, 0.34, 0.62), (0.05, -0.20, 0.26, 0.30, 0.95)):
-        out.append((sph(cx + ox, cy + oy, zz, rr, 1.0, hh / (2 * rr), 1.0), "M_Foliage"))
-    return out
-
-
 def pendant(cx, cy, ceil, drop=0.80, r=0.20):
     out = [(cyl(cx, cy, ceil - drop, ceil, 0.009), "M_Cord")]
     out.append((f"cone {{ <{cx:.3f},{ceil-drop:.3f},{cy:.3f}>, 0.055, "
