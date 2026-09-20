@@ -655,9 +655,9 @@ MATERIALS = """
 #declare M_Stem = texture { pigment { rgb <0.315,0.288,0.205> } finish { diffuse 0.6 ambient 0 } }
 #declare M_Foliage = texture {
   pigment { bozo scale 0.09
-    color_map { [0 rgb <0.180,0.286,0.170>][0.5 rgb <0.245,0.358,0.216>][1 rgb <0.152,0.245,0.148>] } }
-  normal { bumps 0.55 scale 0.04 }
-  finish { diffuse 0.60 specular 0.14 roughness 0.05 ambient 0 }
+    color_map { [0 rgb <0.246,0.382,0.222>][0.5 rgb <0.322,0.470,0.286>][1 rgb <0.206,0.330,0.196>] } }
+  normal { bumps 0.40 scale 0.03 }
+  finish { diffuse 0.66 specular 0.22 roughness 0.035 ambient 0 }
 }
 #declare M_Cord = texture { pigment { rgb <0.10,0.10,0.10> } finish { diffuse 0.35 ambient 0 } }
 #declare M_Shade = texture {
@@ -832,26 +832,35 @@ def floor_lamp(cx, cy, h=1.58):
 
 
 def potted_plant(cx, cy, h=1.15, r=0.20):
-    """A floor plant: tapered pot, a few arching stems, leaf clusters."""
+    """A floor plant: tapered pot, arching stems, small overlapping leaves.
+
+    Few large flattened spheres read as lily pads on sticks; a plant reads as a
+    plant when the leaf is small enough that you see many of them.
+    """
     out = [(f"difference {{ cone {{ <{cx:.4f},0,{cy:.4f}>, {r * 0.78:.4f} "
             f"<{cx:.4f},{r * 1.55:.4f},{cy:.4f}>, {r:.4f} }} "
             f"cone {{ <{cx:.4f},{r * 0.22:.4f},{cy:.4f}>, {r * 0.66:.4f} "
             f"<{cx:.4f},{r * 1.62:.4f},{cy:.4f}>, {r * 0.90:.4f} }} }}", "M_Pot")]
     out.append((sph(cx, cy, r * 1.44, r * 0.88, 1.0, 0.22, 1.0), "M_Stone"))
     base = r * 1.50
-    for i in range(7):
-        a = i * 0.897
+    for i in range(11):
+        a = i * 0.5712                        # ~11 stems on a slow spiral
         ax, ay = math.cos(a), math.sin(a)
-        reach = r * (1.5 + 0.5 * ((i * 3) % 4) / 3.0)
-        top = base + h * (0.55 + 0.45 * ((i * 5) % 3) / 2.0)
+        reach = r * (1.25 + 0.75 * ((i * 3) % 4) / 3.0)
+        top = base + h * (0.50 + 0.50 * ((i * 5) % 3) / 2.0)
         out.append((f"cylinder {{ <{cx:.4f},{base:.4f},{cy:.4f}>, "
-                    f"<{cx + ax * reach:.4f},{top:.4f},{cy + ay * reach:.4f}>, 0.010 }}", "M_Stem"))
-        for j in range(3):
-            t = 0.45 + j * 0.27
+                    f"<{cx + ax * reach:.4f},{top:.4f},{cy + ay * reach:.4f}>, 0.0075 }}",
+                    "M_Stem"))
+        for j in range(5):
+            t = 0.34 + j * 0.165
             lx, ly = cx + ax * reach * t, cy + ay * reach * t
             lz = base + (top - base) * t
-            out.append((sph(lx, ly, lz, 0.105, 1.0, 0.30, 0.72), "M_Foliage"))
-        out.append((sph(cx + ax * reach, cy + ay * reach, top, 0.125, 1.0, 0.34, 0.8), "M_Foliage"))
+            sp = 0.052 + 0.014 * (j % 2)
+            # alternate the flattening axis so the leaves are not all one plane
+            sx, sz = (1.0, 0.58) if (i + j) % 2 else (0.58, 1.0)
+            out.append((sph(lx, ly, lz, sp, sx, 0.46, sz), "M_Foliage"))
+        out.append((sph(cx + ax * reach, cy + ay * reach, top, 0.062,
+                        1.0, 0.44, 0.74), "M_Foliage"))
     return out
 
 
