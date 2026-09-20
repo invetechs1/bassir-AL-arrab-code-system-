@@ -683,7 +683,7 @@ MATERIALS = """
   finish { diffuse 0.68 specular 0.06 roughness 0.34 ambient 0 }
 }
 #declare M_Throw = texture {
-  pigment { rgb <0.560,0.500,0.418> }
+  pigment { rgb <0.352,0.268,0.196> }
   normal { bumps 0.22 scale 0.020 } normal { waves 0.30 frequency 7 scale 0.22 }
   finish { diffuse 0.70 specular 0.04 roughness 0.45 ambient 0 }
 }
@@ -862,6 +862,19 @@ def potted_plant(cx, cy, h=1.15, r=0.20):
         out.append((sph(cx + ax * reach, cy + ay * reach, top, 0.062,
                         1.0, 0.44, 0.74), "M_Foliage"))
     return out
+
+
+def table_lamp(cx, cy, top, h=0.44):
+    """Bedside or console lamp: turned base, slim stem, tapered shade."""
+    r = h * 0.34
+    return [(cyl(cx, cy, top, top + 0.018, 0.085), "M_Brass"),
+            (sph(cx, cy, top + 0.075, 0.062, 1.0, 1.15, 1.0), "M_Ceramic"),
+            (cyl(cx, cy, top + 0.10, top + h - r * 0.75, 0.011), "M_Brass"),
+            (f"difference {{ cone {{ <{cx:.4f},{top + h - r * 0.80:.4f},{cy:.4f}>, {r:.4f} "
+             f"<{cx:.4f},{top + h:.4f},{cy:.4f}>, {r * 0.78:.4f} }} "
+             f"cone {{ <{cx:.4f},{top + h - r * 0.83:.4f},{cy:.4f}>, {r * 0.96:.4f} "
+             f"<{cx:.4f},{top + h + 0.01:.4f},{cy:.4f}>, {r * 0.74:.4f} }} }}", "M_Shade"),
+            (sph(cx, cy, top + h - r * 0.45, 0.032), "M_Bulb")]
 
 
 def bed_throw(x, y, w, d, head, top=0.52):

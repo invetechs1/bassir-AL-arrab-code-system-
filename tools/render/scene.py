@@ -274,9 +274,20 @@ def dress(code, b, r, face, head=None):
     elif code == "TVU-402":
         out += LIB.bowl(cx + w * 0.30, cy, b["z"] + h, 0.09, "M_Ceramic")
     elif code in ("BED-601", "BED-602") and head:
-        out += LIB.bed_throw(x, y, w, d, head, b["z"] + h + 0.02)
+        top = b["z"] + h + 0.02
+        out += LIB.bed_throw(x, y, w, d, head, top)
+        # accent cushions in front of the pillows, against the headboard
+        face = {"n": "s", "s": "n", "e": "w", "w": "e"}[head]
+        if head in ("n", "s"):
+            cy0 = y + d * 0.14 if head == "n" else y + d * 0.58
+            out += LIB.cushions(x + 0.22, cy0, w - 0.44, d * 0.28, face,
+                                top - 0.02, n=2, back=0.02)
+        else:
+            cx0 = x + w * 0.14 if head == "w" else x + w * 0.58
+            out += LIB.cushions(cx0, y + 0.22, w * 0.28, d - 0.44, face,
+                                top - 0.02, n=2, back=0.02)
     elif code == "NIG-603":
-        out += LIB.book_stack(cx, cy, b["z"] + h, 2, 0.17, 0.13)
+        out += LIB.table_lamp(cx, cy, b["z"] + h)
     return out
 
 
@@ -448,10 +459,10 @@ light_source { <-14, 16, -20> color rgb <19.5,17.4,14.2>
 // exterior context so the glazing shows a scene rather than flat blue
 plane { y, -0.19 texture { pigment { rgb <0.512,0.462,0.386> }
   normal { granite 0.02 scale 0.5 } finish { diffuse 0.34 ambient 0 } } }
-#declare T_Far = texture { pigment { rgb <0.70,0.676,0.640> } finish { diffuse 0.40 ambient 0 } };
-object { box { <-34,0,-30>, <-16,7.5,-16> } texture { T_Far } }
-object { box { <14,0,-27>, <30,5.5,-13> } texture { T_Far } }
-object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
+#declare T_Far = texture { pigment { rgb <0.64,0.612,0.572> } finish { diffuse 0.30 ambient 0 } };
+object { box { <-52,0,-48>, <-30,7.5,-28> } texture { T_Far } }
+object { box { <26,0,-44>, <48,5.5,-24> } texture { T_Far } }
+object { box { <-48,0,30>, <-26,6.5,50> } texture { T_Far } }
 // date palm: a squashed sphere on a stick read as a blob in every window, and
 // the glazing is where the eye goes first. Trunk = stacked frond scars, crown =
 // individual drooping fronds, so the silhouette breaks up against the sky.
