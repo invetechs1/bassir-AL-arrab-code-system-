@@ -517,14 +517,14 @@ object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
   }
 #end
 
-object { Palm(-4.9, -7.4, 4.3, 0.18, 2) }
-object { Palm(13.2, 5.1, 3.7, -0.12, 9) }
+object { Palm(-3.2, PALM_A, 4.3, 0.18, 2) }
+object { Palm(PALM_BX, PALM_B, 3.7, -0.12, 9) }
 
 // clipped hedge along the boundary, so the ground is not an empty sand plane
 #declare T_Hedge = texture { pigment { rgb <0.150,0.206,0.122> }
   normal { bumps 0.75 scale 0.09 } finish { diffuse 0.56 ambient 0 } }
-object { box { <-13, 0, -9.4>, <13, 0.95, -8.7> } texture { T_Hedge } }
-object { box { <-13, 0, 8.7>, <13, 0.95, 9.4> } texture { T_Hedge } }
+object { box { <-4.0, 0, HEDGE_N0>, <PLOT_W4, 0.95, HEDGE_N1> } texture { T_Hedge } }
+object { box { <-4.0, 0, HEDGE_S0>, <PLOT_W4, 0.95, HEDGE_S1> } texture { T_Hedge } }
 
 // aerial perspective: without it the sand plane meets the sky on a hard line at
 // infinity, which no photograph of an outdoor scene ever shows. The distance is
@@ -537,7 +537,13 @@ light_source { <26, 15, 24> color rgb <0.055,0.065,0.082>
 
 def emit(level, cam, out_path, rad=""):
     rooms = G[level]["rooms"]
-    L = [HEADER.replace("RAD_CACHE", rad), LIB.MATERIALS]
+    head = HEADER.replace("RAD_CACHE", rad)
+    for key, val in (("HEDGE_N0", -2.30), ("HEDGE_N1", -1.60),
+                     ("HEDGE_S0", D + 1.60), ("HEDGE_S1", D + 2.30),
+                     ("PLOT_W4", W + 4.0), ("PALM_A", -3.40),
+                     ("PALM_BX", W + 3.10), ("PALM_B", D * 0.42)):
+        head = head.replace(key, f"{val:.2f}")
+    L = [head, LIB.MATERIALS]
     used_codes = []
     L.append(cam)
 
