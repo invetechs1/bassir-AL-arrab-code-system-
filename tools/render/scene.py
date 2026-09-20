@@ -336,8 +336,8 @@ global_settings {
   finish { diffuse 0.80 specular 0.02 roughness 0.2 ambient 0 }
 }
 #declare T_Ceiling = texture {
-  pigment { rgb <0.960,0.955,0.945> }
-  finish { diffuse 0.82 specular 0.01 ambient 0 }
+  pigment { rgb <0.950,0.945,0.935> }
+  finish { diffuse 0.72 specular 0.01 ambient 0 }
 }
 #declare T_FabricGreen = texture {
   pigment { rgb <0.360,0.440,0.400> }
@@ -432,19 +432,19 @@ sphere { <-1400, 1500, -1900>, 105
   texture { pigment { rgb <9.0,8.4,7.2> } finish { ambient 1 diffuse 0 } }
   no_shadow hollow }
 
-light_source { <-14, 16, -20> color rgb <3.40,3.02,2.44>
+light_source { <-14, 16, -20> color rgb <19.5,17.4,14.2>
   area_light <2.6,0,0>, <0,0,2.6>, 7, 7 circular orient }
 // exterior context so the glazing shows a scene rather than flat blue
-plane { y, -0.19 texture { pigment { rgb <0.665,0.610,0.520> }
-  normal { granite 0.02 scale 0.5 } finish { diffuse 0.6 ambient 0 } } }
-#declare T_Far = texture { pigment { rgb <0.78,0.755,0.715> } finish { diffuse 0.68 ambient 0 } };
+plane { y, -0.19 texture { pigment { rgb <0.512,0.462,0.386> }
+  normal { granite 0.02 scale 0.5 } finish { diffuse 0.34 ambient 0 } } }
+#declare T_Far = texture { pigment { rgb <0.70,0.676,0.640> } finish { diffuse 0.40 ambient 0 } };
 object { box { <-34,0,-30>, <-16,7.5,-16> } texture { T_Far } }
 object { box { <14,0,-27>, <30,5.5,-13> } texture { T_Far } }
 object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
 // date palm: a squashed sphere on a stick read as a blob in every window, and
 // the glazing is where the eye goes first. Trunk = stacked frond scars, crown =
 // individual drooping fronds, so the silhouette breaks up against the sky.
-#declare T_Frond = texture { pigment { rgb <0.176,0.232,0.132> }
+#declare T_Frond = texture { pigment { rgb <0.212,0.276,0.156> }
   normal { bumps 0.35 scale 0.035 }
   finish { diffuse 0.58 specular 0.12 roughness 0.06 ambient 0 } }
 #declare T_Trunk = texture {
@@ -469,9 +469,9 @@ object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
       // leaflets fan out either side of the rachis in a shallow V
       #if (i > 0)
         #local w = 0.30 * (1 - 0.55 * t0);
-        box { <-0.055, -0.006, 0>, <0.055, 0.006, w>
+        box { <-0.048, -0.004, 0>, <0.048, 0.004, w>
               rotate <-24, 0, 0> translate <len * t0, y0, 0> }
-        box { <-0.055, -0.006, -w>, <0.055, 0.006, 0>
+        box { <-0.048, -0.004, -w>, <0.048, 0.004, 0>
               rotate <24, 0, 0> translate <len * t0, y0, 0> }
       #end
       #local i = i + 1;
@@ -496,10 +496,10 @@ object { box { <-30,0,16>, <-14,6.5,30> } texture { T_Far } }
     // fruit stalks
     #local k = 0;
     #while (k < 3)
-      sphere { <0,0,0>, 0.34 scale <1,0.6,1>
-               texture { pigment { rgb <0.42,0.30,0.14> } finish { diffuse 0.6 ambient 0 } }
+      sphere { <0,0,0>, 0.15 scale <1,0.72,1>
+               texture { pigment { rgb <0.336,0.222,0.096> } finish { diffuse 0.55 ambient 0 } }
                rotate <0, k * 118 + S, 0>
-               translate <lean * h * 0.06 + 0.55 * cos(k * 2.06), h - 0.45, lean * h * 0.03 + 0.55 * sin(k * 2.06)> }
+               translate <lean * h * 0.06 + 0.42 * cos(k * 2.06), h - 0.30, lean * h * 0.03 + 0.42 * sin(k * 2.06)> }
       #local k = k + 1;
     #end
     translate <px, 0, pz>
@@ -592,7 +592,7 @@ def emit(level, cam, out_path, rad=""):
             a1, a2 = f"<{span:.2f},0,0>", f"<0,{(z1-z0):.2f},0>"
         else:
             a1, a2 = f"<0,0,{span:.2f}>", f"<0,{(z1-z0):.2f},0>"
-        L.append(f"light_source {{ <{cx:.2f},{cz:.2f},{cy:.2f}> color rgb <0.52,0.57,0.68>\n"
+        L.append(f"light_source {{ <{cx:.2f},{cz:.2f},{cy:.2f}> color rgb <0.95,1.02,1.18>\n"
                  f"  area_light {a1}, {a2}, 5, 5 }}")
 
     # curtains on poles, clear of the wall

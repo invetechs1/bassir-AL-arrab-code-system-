@@ -131,7 +131,7 @@ def srgb(lin):
 
 
 def grade(path_in, path_out, exposure=1.0, temp=1.02, bloom_strength=0.09,
-          vig=0.26, ca=1.0, grain_amount=0.006, contrast=1.13, lift=0.004):
+          vig=0.26, ca=0.45, grain_amount=0.006, contrast=1.13, lift=0.004):
     from PIL import Image
     lin = read_hdr(path_in) * exposure
     lin = white_balance(lin, temp)

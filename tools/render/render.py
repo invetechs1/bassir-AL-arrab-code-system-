@@ -23,7 +23,7 @@ def main():
     ap.add_argument("--width", type=int, default=1400)
     ap.add_argument("--height", type=int, default=900)
     ap.add_argument("--only", default=None, help="render a single view by name")
-    ap.add_argument("--exposure", type=float, default=0.46,
+    ap.add_argument("--exposure", type=float, default=0.26,
                     help="tone-mapping exposure applied to the HDR")
     args = ap.parse_args()
 
@@ -47,8 +47,8 @@ def main():
             print(f"{name}: FAILED in {time.time() - t0:.0f}s", flush=True)
             print(r.stderr[-800:], file=sys.stderr)
             continue
-        post.grade(hdr, png, exposure=args.exposure, temp=1.03, bloom_strength=0.11,
-                   grain_amount=0.0026, vig=0.22, contrast=1.10)
+        post.grade(hdr, png, exposure=args.exposure, temp=1.03, bloom_strength=0.09,
+                   grain_amount=0.0026, vig=0.24, contrast=1.14, ca=0.30)
         print(f"{name}: ok in {time.time() - t0:.0f}s -> {png}", flush=True)
 
 
