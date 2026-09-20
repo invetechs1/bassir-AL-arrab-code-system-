@@ -843,16 +843,16 @@ def potted_plant(cx, cy, h=1.15, r=0.20):
             f"<{cx:.4f},{r * 1.62:.4f},{cy:.4f}>, {r * 0.90:.4f} }} }}", "M_Pot")]
     out.append((sph(cx, cy, r * 1.44, r * 0.88, 1.0, 0.22, 1.0), "M_Stone"))
     base = r * 1.50
-    for i in range(11):
-        a = i * 0.5712                        # ~11 stems on a slow spiral
+    for i in range(9):
+        a = i * 0.6981                        # nine stems on a slow spiral
         ax, ay = math.cos(a), math.sin(a)
-        reach = r * (1.25 + 0.75 * ((i * 3) % 4) / 3.0)
+        reach = r * (1.60 + 1.05 * ((i * 3) % 4) / 3.0)
         top = base + h * (0.50 + 0.50 * ((i * 5) % 3) / 2.0)
         out.append((f"cylinder {{ <{cx:.4f},{base:.4f},{cy:.4f}>, "
                     f"<{cx + ax * reach:.4f},{top:.4f},{cy + ay * reach:.4f}>, 0.0075 }}",
                     "M_Stem"))
-        for j in range(5):
-            t = 0.34 + j * 0.165
+        for j in range(3):
+            t = 0.42 + j * 0.24
             lx, ly = cx + ax * reach * t, cy + ay * reach * t
             lz = base + (top - base) * t
             sp = 0.052 + 0.014 * (j % 2)
@@ -880,9 +880,9 @@ def table_lamp(cx, cy, top, h=0.44):
 def bed_throw(x, y, w, d, head, top=0.52):
     """A folded runner across the foot of the bed."""
     if head in ("n", "s"):
-        fy = y + d * (0.06 if head == "n" else 0.66)
+        fy = y + d * (0.66 if head == "n" else 0.06)
         g = rb(x - 0.035, fy, w + 0.07, d * 0.28, top - 0.01, top + 0.05, 0.022)
     else:
-        fx = x + w * (0.06 if head == "e" else 0.66)
+        fx = x + w * (0.66 if head == "w" else 0.06)
         g = rb(fx, y - 0.035, w * 0.28, d + 0.07, top - 0.01, top + 0.05, 0.022)
     return [(g, "M_Throw")]
