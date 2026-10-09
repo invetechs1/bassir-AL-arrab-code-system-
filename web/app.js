@@ -404,39 +404,74 @@ function villaRooms(level, W, D) {
              w: (x1 - x0) * W, h: (y1 - y0) * D, type: type,
              door: door || null, win: win || [] });
   }
+  /* A plot twice the size does not want a toilet twice the size. Service
+     rooms are sized in metres and clamped; the extra area goes to the living
+     spaces, and past a certain floor plate it buys extra rooms instead. */
+  function band(metres, lo, hi) {
+    return Math.min(Math.max(metres, lo), hi) / D;   // depth as a fraction
+  }
+  function col(metres, lo, hi) {
+    return Math.min(Math.max(metres, lo), hi) / W;   // width as a fraction
+  }
+  var big = W * D >= 200;            // large floor plate: run the extended program
+  var svc = band(0.22 * D, 2.6, 3.8);          // circulation + service band
+  var wcW = col(0.26 * W, 1.7, 2.8);           // guest WC / secondary bath
 
   if (level === "ground") {
-    add("majlis", "مجلس", "Majlis", 0, 0, 0.58, 0.34, "majlis",
+    var fdep = band(0.34 * D, 4.8, 6.4);       // front band: majlis + entry
+    var y1 = fdep, y2 = fdep + svc;
+    add("majlis", "مجلس", "Majlis", 0, 0, 0.58, y1, "majlis",
         { side: "s", at: 0.72 },
         [{ side: "n", at: 0.5, len: 2.0 }, { side: "w", at: 0.5, len: 1.6 }]);
-    add("entry", "مدخل", "Entry", 0.58, 0, 1, 0.34, "entry",
+    add("entry", "مدخل", "Entry", 0.58, 0, 1, y1, "entry",
         { side: "n", at: 0.5, main: true },
         [{ side: "e", at: 0.5, len: 1.2 }]);
-    add("wc", "دورة مياه", "WC", 0, 0.34, 0.26, 0.56, "wc",
+    add("wc", "دورة مياه", "WC", 0, y1, wcW, y2, "wc",
         { side: "e", at: 0.5 },
         [{ side: "w", at: 0.5, len: 0.6 }]);
-    add("hall", "صالة توزيع ودرج", "Hall and stair", 0.26, 0.34, 1, 0.56, "stair", null, []);
-    add("living", "صالة معيشة", "Family living", 0, 0.56, 0.58, 1, "living",
-        { side: "n", at: 0.55 },
-        [{ side: "w", at: 0.55, len: 1.8 }, { side: "s", at: 0.5, len: 2.0 }]);
-    add("kitchen", "مطبخ", "Kitchen", 0.58, 0.56, 1, 1, "kitchen",
-        { side: "n", at: 0.5 },
-        [{ side: "s", at: 0.5, len: 1.4 }, { side: "e", at: 0.6, len: 1.2 }]);
+    add("hall", "صالة توزيع ودرج", "Hall and stair", wcW, y1, 1, y2, "stair", null, []);
+    if (big) {
+      add("living", "صالة معيشة", "Family living", 0, y2, 0.42, 1, "living",
+          { side: "n", at: 0.55 },
+          [{ side: "w", at: 0.55, len: 1.8 }, { side: "s", at: 0.5, len: 2.0 }]);
+      add("dining", "صالة طعام", "Dining", 0.42, y2, 0.68, 1, "dining",
+          { side: "n", at: 0.5 },
+          [{ side: "s", at: 0.5, len: 1.6 }]);
+      add("kitchen", "مطبخ", "Kitchen", 0.68, y2, 1, 1, "kitchen",
+          { side: "n", at: 0.5 },
+          [{ side: "s", at: 0.5, len: 1.4 }, { side: "e", at: 0.6, len: 1.2 }]);
+    } else {
+      add("living", "صالة معيشة", "Family living", 0, y2, 0.58, 1, "living",
+          { side: "n", at: 0.55 },
+          [{ side: "w", at: 0.55, len: 1.8 }, { side: "s", at: 0.5, len: 2.0 }]);
+      add("kitchen", "مطبخ", "Kitchen", 0.58, y2, 1, 1, "kitchen",
+          { side: "n", at: 0.5 },
+          [{ side: "s", at: 0.5, len: 1.4 }, { side: "e", at: 0.6, len: 1.2 }]);
+    }
   } else {
-    add("master", "غرفة نوم رئيسية", "Master bedroom", 0, 0, 0.60, 0.38, "bed_master",
+    var mdep = band(0.38 * D, 5.0, 6.6);       // master band
+    var z1 = mdep, z2 = mdep + svc;
+    var mW = big ? 0.40 : 0.60;                // master takes less of a wide plate
+    var mbW = big ? 0.64 : 1.0;
+    add("master", "غرفة نوم رئيسية", "Master bedroom", 0, 0, mW, z1, "bed_master",
         { side: "s", at: 0.75 },
         [{ side: "n", at: 0.5, len: 1.8 }, { side: "w", at: 0.5, len: 1.4 }]);
-    add("mbath", "حمام رئيسي", "Master bath", 0.60, 0, 1, 0.38, "bath",
+    add("mbath", "حمام رئيسي", "Master bath", mW, 0, mbW, z1, "bath",
         { side: "s", at: 0.5 },
         [{ side: "e", at: 0.5, len: 0.8 }]);
-    add("bath", "حمام", "Bathroom", 0, 0.38, 0.26, 0.56, "wc",
+    if (big) {
+      add("bed4", "غرفة نوم ٤", "Bedroom 4", mbW, 0, 1, z1, "bed",
+          { side: "s", at: 0.5 },
+          [{ side: "n", at: 0.5, len: 1.4 }, { side: "e", at: 0.5, len: 1.4 }]);
+    }
+    add("bath", "حمام", "Bathroom", 0, z1, wcW, z2, "wc",
         { side: "e", at: 0.5 },
         [{ side: "w", at: 0.5, len: 0.6 }]);
-    add("landing", "بسطة ودرج", "Landing and stair", 0.26, 0.38, 1, 0.56, "stair", null, []);
-    add("bed2", "غرفة نوم ٢", "Bedroom 2", 0, 0.56, 0.50, 1, "bed",
+    add("landing", "بسطة ودرج", "Landing and stair", wcW, z1, 1, z2, "stair", null, []);
+    add("bed2", "غرفة نوم ٢", "Bedroom 2", 0, z2, 0.50, 1, "bed",
         { side: "n", at: 0.6 },
         [{ side: "w", at: 0.55, len: 1.4 }, { side: "s", at: 0.5, len: 1.4 }]);
-    add("bed3", "غرفة نوم ٣", "Bedroom 3", 0.50, 0.56, 1, 1, "bed",
+    add("bed3", "غرفة نوم ٣", "Bedroom 3", 0.50, z2, 1, 1, "bed",
         { side: "n", at: 0.4 },
         [{ side: "s", at: 0.5, len: 1.4 }, { side: "e", at: 0.55, len: 1.4 }]);
   }
@@ -625,6 +660,24 @@ function planFurniture(r, m, ox, oy, opts) {
     out += box((W - ctw) / 2, sy - cth - 0.35, ctw, cth);
     out += tag("ctable", W / 2, sy - cth - 0.35 + cth / 2);
 
+  } else if (r.type === "dining") {
+    // a dining room seats the household: a long table with a chair each side
+    var dtW = Math.min(1.10, W - 2 * pad - 0.9), dtH = Math.min(2.20, D * 0.44);
+    var dtx = (W - dtW) / 2, dty = (D - dtH) / 2;
+    out += box(dtx, dty, dtW, dtH);
+    out += tag("dining", dtx + dtW / 2, dty + dtH / 2);
+    var ch = 0.32, cg = 0.09, perSide = Math.max(2, Math.min(4, Math.floor(dtH / 0.70)));
+    for (var q = 0; q < perSide; q++) {
+      var cy2 = dty + dtH * (q + 0.5) / perSide - ch / 2;
+      out += box(dtx - cg - ch, cy2, ch, ch);
+      out += box(dtx + dtW + cg, cy2, ch, ch);
+    }
+    out += box(dtx + dtW / 2 - ch / 2, dty - cg - ch, ch, ch);
+    out += box(dtx + dtW / 2 - ch / 2, dty + dtH + cg, ch, ch);
+    var sbW = Math.min(1.6, W * 0.42);
+    out += box((W - sbW) / 2, pad, sbW, Math.min(0.45, D * 0.09));
+    out += tag("console", W / 2, pad + 0.22);
+
   } else if (r.type === "kitchen") {
     var c = Math.min(0.62, W * 0.26, D * 0.22);
     out += box(pad, pad, W - 2 * pad, c);                    // main run
@@ -740,6 +793,10 @@ var FINISH = {
     "بورسلين مصقول", "Polished porcelain",
     "دهان قابل للغسل", "Washable paint",
     "جبسبورد مع إنارة موزعة", "Gypsum board with distributed lighting"],
+  dining: ["F2",
+    "بورسلين مقاس كبير", "Large-format porcelain",
+    "دهان مع كسوة خشبية خلف الطاولة", "Paint with timber panelling behind the table",
+    "جبسبورد مع إنارة معلقة فوق الطاولة", "Gypsum board with a pendant over the table"],
   bed: ["F3",
     "بورسلين أو باركيه هندسي", "Porcelain or engineered timber",
     "دهان مطفي", "Matt paint",
@@ -981,6 +1038,23 @@ function villaFurnitureSolids(level, W, D) {
       if (w > 3.2) { var ac = Math.min(0.75, w * 0.18); B(pad, d * 0.45, 0, ac, ac, 0.45, "soft"); }
       var ctw = Math.min(1.1, w * 0.34), cth = Math.min(0.55, d * 0.13);
       B((w - ctw) / 2, sy - cth - 0.35, 0, ctw, cth, 0.40, "wood");
+
+    } else if (r.type === "dining") {
+      var dtW = Math.min(1.10, w - 2 * pad - 0.9), dtH = Math.min(2.20, d * 0.44);
+      var dtx = (w - dtW) / 2, dty = (d - dtH) / 2;
+      B(dtx, dty, 0, dtW, dtH, 0.75, "wood");
+      var ch = 0.32, cg = 0.09, perSide = Math.max(2, Math.min(4, Math.floor(dtH / 0.70)));
+      for (var q = 0; q < perSide; q++) {
+        var cy2 = dty + dtH * (q + 0.5) / perSide - ch / 2;
+        B(dtx - cg - ch, cy2, 0, ch, ch, 0.45, "wood");
+        B(dtx - cg - ch, cy2, 0, ch, 0.06, 0.88, "wood");
+        B(dtx + dtW + cg, cy2, 0, ch, ch, 0.45, "wood");
+        B(dtx + dtW + cg, cy2 + ch - 0.06, 0, ch, 0.06, 0.88, "wood");
+      }
+      B(dtx + dtW / 2 - ch / 2, dty - cg - ch, 0, ch, ch, 0.45, "wood");
+      B(dtx + dtW / 2 - ch / 2, dty + dtH + cg, 0, ch, ch, 0.45, "wood");
+      var sbW = Math.min(1.6, w * 0.42);
+      B((w - sbW) / 2, pad, 0, sbW, Math.min(0.45, d * 0.09), 0.85, "wood");
 
     } else if (r.type === "kitchen") {
       var c = Math.min(0.62, w * 0.26, d * 0.22);

@@ -18,6 +18,10 @@ FINISHES = {
         "ar": ("بورسلين مصقول", "دهان قابل للغسل", "جبسبورد مع إنارة موزعة"),
         "en": ("Polished porcelain", "Washable paint", "Gypsum board with distributed lighting"),
     },
+    "dining": {
+        "ar": ("بورسلين مقاس كبير", "دهان مع كسوة خشبية خلف الطاولة", "جبسبورد مع إنارة معلقة فوق الطاولة"),
+        "en": ("Large-format porcelain", "Paint with timber panelling behind the table", "Gypsum board with a pendant over the table"),
+    },
     "bedroom": {
         "ar": ("بورسلين أو باركيه هندسي", "دهان مطفي", "جبسبورد مع إنارة محيطية"),
         "en": ("Porcelain or engineered timber", "Matt paint", "Gypsum board with perimeter lighting"),
@@ -47,7 +51,8 @@ FINISHES = {
 # Which finish family each program keyword maps to.
 SPACE_MAP = [
     (("مجلس", "majlis", "reception", "استقبال"), "majlis"),
-    (("معيشة", "living", "dining", "طعام"), "living"),
+    (("طعام", "dining"), "dining"),
+    (("معيشة", "living"), "living"),
     (("نوم", "bedroom"), "bedroom"),
     (("مطبخ", "kitchen"), "kitchen"),
     (("دورات", "bath", "toilet"), "bathroom"),

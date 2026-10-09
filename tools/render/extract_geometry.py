@@ -23,7 +23,17 @@ def main():
     ap.add_argument("--url", default="http://127.0.0.1:8000/ui")
     ap.add_argument("--out", default="villa_geom.json")
     ap.add_argument("--chromium", default=None, help="explicit browser executable path")
+    ap.add_argument("--set", action="append", default=[], metavar="FIELD=VALUE",
+                    help="override a project field (repeatable), e.g. --set plot_w=20")
     args = ap.parse_args()
+
+    for pair in args.set:
+        name, _, value = pair.partition("=")
+        name = name.strip()
+        if name in SELECTS:
+            SELECTS[name] = value.strip()
+        else:
+            FIELDS[name] = value.strip()
 
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
