@@ -638,8 +638,22 @@ function planFurniture(r, m, ox, oy, opts) {
     out += tag("ctable", W / 2, pad + sd + 0.25 + rh / 2);
 
   } else if (r.type === "living") {
-    var sofaD = Math.min(0.85, D * 0.2), sofaW = Math.min(2.4, W - 2 * pad - 0.4);
+    // One 2.4 m sofa marooned in a 54 m² room reads as unfurnished. A seating
+    // group is sized to the room it sits in: the sofa grows, chairs come in to
+    // face it, and a rug ties the group together.
+    var big = W * D >= 28;
+    var sofaD = Math.min(0.95, D * 0.2);
+    var sofaW = Math.max(1.9, Math.min(big ? 3.0 : 2.4, W - 2 * pad - 0.4));
     var sx = (W - sofaW) / 2, sy = D - pad - sofaD;
+    var ctw = Math.max(0.8, Math.min(big ? 1.5 : 1.1, W * 0.30));
+    var cth = Math.max(0.45, Math.min(big ? 0.80 : 0.55, D * 0.13));
+    var ctx = (W - ctw) / 2, cty = sy - cth - (big ? 0.60 : 0.35);
+    if (big) {                                   // rug under the whole group
+      var rgw = Math.min(W - 2 * pad - 0.2, sofaW + 2.6);
+      var rgh = Math.min(D * 0.46, sofaD + cth + 2.0);
+      out += box((W - rgw) / 2, sy + sofaD - rgh, rgw, rgh, { fill: FURN_SOFT });
+      out += tag("rug", (W - rgw) / 2 + 0.45, sy + sofaD - rgh + 0.3);
+    }
     out += box(sx, sy, sofaW, sofaD);                       // sofa body
     out += box(sx, sy, sofaW, sofaD * 0.3);                 // back
     out += box(sx, sy + sofaD * 0.3, 0.2, sofaD * 0.7);     // arms
@@ -647,18 +661,25 @@ function planFurniture(r, m, ox, oy, opts) {
     out += ln(sx + sofaW / 3, sy + sofaD * 0.3, sx + sofaW / 3, sy + sofaD);
     out += ln(sx + 2 * sofaW / 3, sy + sofaD * 0.3, sx + 2 * sofaW / 3, sy + sofaD);
     out += tag("sofa", sx + sofaW * 0.5, sy + sofaD * 0.62);
-    var tvW = Math.min(1.8, W * 0.5);
-    out += box((W - tvW) / 2, pad, tvW, Math.min(0.42, D * 0.1));
+    var tvW = Math.max(1.4, Math.min(big ? 2.6 : 1.8, W * 0.5));
+    out += box((W - tvW) / 2, pad, tvW, Math.min(0.5, D * 0.1));
     out += ln((W - tvW) / 2 + tvW * 0.2, pad + 0.06, (W + tvW) / 2 - tvW * 0.2, pad + 0.06, 0.8);
     out += tag("tv", W / 2, pad + 0.2);
-    var acw = Math.min(0.75, W * 0.18);
-    if (W > 3.2) {
+    var acw = Math.min(0.85, W * 0.18);
+    if (big) {                                   // a chair each side, facing in
+      var ay = cty + cth / 2 - acw / 2;
+      out += box(ctx - 0.55 - acw, ay, acw, acw);
+      out += ln(ctx - 0.55 - acw, ay, ctx - 0.55 - acw, ay + acw);
+      out += box(ctx + ctw + 0.55, ay, acw, acw);
+      out += ln(ctx + ctw + 0.55 + acw, ay, ctx + ctw + 0.55 + acw, ay + acw);
+      out += tag("armchair", ctx - 0.55 - acw / 2, ay + acw / 2);
+      out += tag("armchair", ctx + ctw + 0.55 + acw / 2, ay + acw / 2);
+    } else if (W > 3.2) {
       out += box(pad, D * 0.45, acw, acw); out += ln(pad, D * 0.45, pad + acw, D * 0.45);
       out += tag("armchair", pad + acw / 2, D * 0.45 + acw / 2);
     }
-    var ctw = Math.min(1.1, W * 0.34), cth = Math.min(0.55, D * 0.13);
-    out += box((W - ctw) / 2, sy - cth - 0.35, ctw, cth);
-    out += tag("ctable", W / 2, sy - cth - 0.35 + cth / 2);
+    out += box(ctx, cty, ctw, cth);
+    out += tag("ctable", W / 2, cty + cth / 2);
 
   } else if (r.type === "dining") {
     // a dining room seats the household: a long table with a chair each side
@@ -728,11 +749,27 @@ function planFurniture(r, m, ox, oy, opts) {
       out += box(bx - nt - 0.05, by, nt, nt); out += box(bx + bw + 0.05, by, nt, nt);
       out += tag("night", bx - nt / 2 - 0.05, by + nt / 2);
     }
-    var ww = Math.min(2.0, W - 2 * pad), wd = Math.min(0.6, D * 0.15);
+    // a bed alone in a 60 m² room reads as unfurnished: the wardrobe run grows
+    // with the wall it sits on, and a large room earns a rug and a chair
+    var bigBed = W * D >= 26;
+    var ww = Math.max(1.6, Math.min(bigBed ? 3.6 : 2.0, W - 2 * pad));
+    var wd = Math.min(0.65, D * 0.15);
+    if (bigBed) {
+      var brw = Math.min(W - 2 * pad - 0.2, bw + 2.2), brh = Math.min(D * 0.42, bh + 1.0);
+      out += box((W - brw) / 2, by - 0.25, brw, brh, { fill: FURN_SOFT });
+      out += tag("rug", (W - brw) / 2 + 0.4, by - 0.25 + 0.3);
+    }
     out += box((W - ww) / 2, D - pad - wd, ww, wd);
     out += ln((W - ww) / 2, D - pad - wd * 0.7, (W + ww) / 2, D - pad - wd * 0.7);
-    for (var k2 = 1; k2 < 3; k2++) { out += ln((W - ww) / 2 + ww * k2 / 3, D - pad - wd, (W - ww) / 2 + ww * k2 / 3, D - pad); }
+    var leaves = Math.max(3, Math.round(ww / 0.6));
+    for (var k2 = 1; k2 < leaves; k2++) { out += ln((W - ww) / 2 + ww * k2 / leaves, D - pad - wd, (W - ww) / 2 + ww * k2 / leaves, D - pad); }
     out += tag("wardrobe", W / 2, D - pad - wd / 2);
+    if (bigBed) {
+      var rc = 0.8;
+      out += box(pad, D * 0.52, rc, rc);
+      out += ln(pad, D * 0.52, pad, D * 0.52 + rc);
+      out += tag("armchair", pad + rc / 2, D * 0.52 + rc / 2);
+    }
     if (!isM && W > 2.8) {
       var dk = Math.min(1.0, W * 0.35);
       out += box(pad, D * 0.52, dk, Math.min(0.55, D * 0.13));
@@ -1026,18 +1063,34 @@ function villaFurnitureSolids(level, W, D) {
       B((w - tw) / 2, pad + sd + 0.25 + (rh - th) / 2, 0, tw, th, 0.40, "wood");
 
     } else if (r.type === "living") {
-      var sofaD = Math.min(0.85, d * 0.2), sofaW = Math.min(2.4, w - 2 * pad - 0.4);
+      var big = w * d >= 28;
+      var sofaD = Math.min(0.95, d * 0.2);
+      var sofaW = Math.max(1.9, Math.min(big ? 3.0 : 2.4, w - 2 * pad - 0.4));
       var sx = (w - sofaW) / 2, sy = d - pad - sofaD;
+      var ctw = Math.max(0.8, Math.min(big ? 1.5 : 1.1, w * 0.30));
+      var cth = Math.max(0.45, Math.min(big ? 0.80 : 0.55, d * 0.13));
+      var ctx = (w - ctw) / 2, cty = sy - cth - (big ? 0.60 : 0.35);
+      if (big) {
+        var rgw = Math.min(w - 2 * pad - 0.2, sofaW + 2.6);
+        var rgh = Math.min(d * 0.46, sofaD + cth + 2.0);
+        B((w - rgw) / 2, sy + sofaD - rgh, 0, rgw, rgh, 0.02, "green");
+      }
       B(sx, sy, 0, sofaW, sofaD, 0.42, "soft");
       B(sx, sy + sofaD - 0.18, 0, sofaW, 0.18, 0.80, "soft");
       B(sx, sy, 0, 0.18, sofaD, 0.60, "soft");
       B(sx + sofaW - 0.18, sy, 0, 0.18, sofaD, 0.60, "soft");
-      var tvW = Math.min(1.8, w * 0.5);
-      B((w - tvW) / 2, pad, 0, tvW, Math.min(0.42, d * 0.1), 0.50, "wood");
+      var tvW = Math.max(1.4, Math.min(big ? 2.6 : 1.8, w * 0.5));
+      B((w - tvW) / 2, pad, 0, tvW, Math.min(0.5, d * 0.1), 0.50, "wood");
       B((w - tvW) / 2 + tvW * 0.2, pad + 0.06, 0.50, tvW * 0.6, 0.06, 0.62, "step");
-      if (w > 3.2) { var ac = Math.min(0.75, w * 0.18); B(pad, d * 0.45, 0, ac, ac, 0.45, "soft"); }
-      var ctw = Math.min(1.1, w * 0.34), cth = Math.min(0.55, d * 0.13);
-      B((w - ctw) / 2, sy - cth - 0.35, 0, ctw, cth, 0.40, "wood");
+      var ac = Math.min(0.85, w * 0.18);
+      if (big) {
+        var ay = cty + cth / 2 - ac / 2;
+        B(ctx - 0.55 - ac, ay, 0, ac, ac, 0.45, "soft");
+        B(ctx + ctw + 0.55, ay, 0, ac, ac, 0.45, "soft");
+      } else if (w > 3.2) {
+        B(pad, d * 0.45, 0, ac, ac, 0.45, "soft");
+      }
+      B(ctx, cty, 0, ctw, cth, 0.40, "wood");
 
     } else if (r.type === "dining") {
       var dtW = Math.min(1.10, w - 2 * pad - 0.9), dtH = Math.min(2.20, d * 0.44);
@@ -1085,9 +1138,16 @@ function villaFurnitureSolids(level, W, D) {
       B(bx, by - 0.08, 0, bw, 0.08, 0.95, "wood");
       var nt = Math.min(0.45, (w - bw) / 2 - pad - 0.04);
       if (nt > 0.22) { B(bx - nt - 0.05, by, 0, nt, nt, 0.50, "wood"); B(bx + bw + 0.05, by, 0, nt, nt, 0.50, "wood"); }
-      var ww = Math.min(2.0, w - 2 * pad), wd = Math.min(0.6, d * 0.15);
+      var bigBed = w * d >= 26;
+      var ww = Math.max(1.6, Math.min(bigBed ? 3.6 : 2.0, w - 2 * pad));
+      var wd = Math.min(0.65, d * 0.15);
+      if (bigBed) {
+        var brw = Math.min(w - 2 * pad - 0.2, bw + 2.2), brh = Math.min(d * 0.42, bh + 1.0);
+        B((w - brw) / 2, by - 0.25, 0, brw, brh, 0.02, "green");
+      }
       B((w - ww) / 2, d - pad - wd, 0, ww, wd, 2.00, "wood");
-      if (!isM && w > 2.8) { var dk = Math.min(1.0, w * 0.35); B(pad, d * 0.52, 0, dk, Math.min(0.55, d * 0.13), 0.75, "wood"); }
+      if (bigBed) { B(pad, d * 0.52, 0, 0.8, 0.8, 0.45, "soft"); }
+      else if (!isM && w > 2.8) { var dk = Math.min(1.0, w * 0.35); B(pad, d * 0.52, 0, dk, Math.min(0.55, d * 0.13), 0.75, "wood"); }
 
     } else if (r.type === "bath" || r.type === "wc") {
       var bs = Math.min(0.40, w * 0.26, d * 0.2);
