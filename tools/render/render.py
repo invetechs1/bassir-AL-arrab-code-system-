@@ -23,8 +23,8 @@ def main():
     ap.add_argument("--width", type=int, default=1400)
     ap.add_argument("--height", type=int, default=900)
     ap.add_argument("--only", default=None, help="render a single view by name")
-    ap.add_argument("--exposure", type=float, default=0.26,
-                    help="tone-mapping exposure applied to the HDR")
+    ap.add_argument("--exposure", type=float, default=None,
+                    help="tone-mapping exposure; omitted means meter each frame")
     args = ap.parse_args()
 
     import scene, post

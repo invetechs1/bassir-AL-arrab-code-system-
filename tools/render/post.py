@@ -130,10 +130,36 @@ def srgb(lin):
     return np.where(lin <= 0.0031308, lin * 12.92, (1 + a) * np.power(lin, 1 / 2.4) - a)
 
 
-def grade(path_in, path_out, exposure=1.0, temp=1.02, bloom_strength=0.09,
+def meter(lin, target=0.60, lo=0.02, hi=6.0):
+    """The exposure that puts this frame's median at `target` after tone mapping.
+
+    One fixed exposure only ever suits the room it was tuned on: a north-facing
+    bedroom lit by portal fill alone lands two stops under a sunlit majlis, and
+    the same number makes one murky or the other blown. A camera meters every
+    frame. `aces` and `srgb` are monotonic, so the median commutes through them
+    and the solve is a scalar bisection rather than a search over the image.
+    """
+    med = float(np.median(lin))
+    if med <= 1e-6:
+        return 1.0
+    one = np.array([0.0], dtype=np.float32)
+    for _ in range(50):
+        mid = 0.5 * (lo + hi)
+        one[0] = med * mid
+        if float(srgb(aces(one))[0]) < target:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def grade(path_in, path_out, exposure=None, temp=1.02, bloom_strength=0.09,
           vig=0.26, ca=0.45, grain_amount=0.006, contrast=1.13, lift=0.004):
     from PIL import Image
-    lin = read_hdr(path_in) * exposure
+    lin = read_hdr(path_in)
+    if exposure is None:                 # auto-meter unless told otherwise
+        exposure = meter(lin)
+    lin = lin * exposure
     lin = white_balance(lin, temp)
     lin = bloom(lin, 1.0, bloom_strength)
     img = aces(lin)
