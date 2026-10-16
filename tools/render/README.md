@@ -55,3 +55,43 @@ curtains, cushions, planting and light fittings.
 
 About 3-5 minutes per view at 1400x900 on 4 cores, most of it the radiosity
 pretrace. Resolution scales the trace time roughly linearly in pixel count.
+
+## Second renderer: Blender / Cycles
+
+`blender_render.py` renders the same villa through Cycles. It does not
+duplicate the model: it reads back the solids `library.py` already emitted,
+through `povparse.py`, so a sofa cannot differ between the two renderers.
+
+```bash
+VILLA_GEOM=villa.json blender -b --python tools/render/blender_render.py -- \
+    --view majlis-ground --out majlis.png --width 1920 --height 1200 --samples 600
+```
+
+It writes a linear Radiance `.hdr` and stops. Grading is the same
+`post.grade` the POV-Ray path uses, so the two images differ only by the
+renderer:
+
+```bash
+python -c "import post; post.grade('majlis.hdr','majlis.png',use_denoise=True)"
+```
+
+What Cycles brings that POV-Ray 3.7 cannot: a Principled BSDF (GGX
+microfacet, real roughness/metallic/IOR), the Nishita physical sun-and-sky
+model in place of a hand-written gradient, and Open Image Denoise.
+
+Three things cost real time to find, and are worth knowing before changing
+this file:
+
+- **Refractive caustics must stay on.** Daylight reaches an interior by
+  refracting through a pane and then bouncing off a diffuse surface, which
+  Cycles classifies as a caustic. Switching caustics off - normal practice
+  for exteriors - makes the room render pure black while the windows still
+  look bright. The median of the frame was exactly zero until this was fixed.
+- **Window portals need their normals facing in.** Backwards portals are not
+  an error, they simply do nothing.
+- **The file cannot be called `cycles.py`.** Blender ships a `cycles` addon
+  module, and that name wins for anything that imports it.
+
+Denoising is optional (`pip install pyoidn`). Distribution builds of Blender
+are frequently compiled without OpenImageDenoise - this is why the denoise
+step lives in `post.py` rather than in Cycles' own settings.

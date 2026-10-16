@@ -130,6 +130,45 @@ def srgb(lin):
     return np.where(lin <= 0.0031308, lin * 12.92, (1 + a) * np.power(lin, 1 / 2.4) - a)
 
 
+def denoise(lin, albedo=None, normal=None):
+    """Intel Open Image Denoise over a linear HDR frame, if it is installed.
+
+    A path tracer pays for every clean pixel in samples, and interior
+    daylight - which arrives only by refracting through a window and then
+    bouncing - is the slowest case there is. A denoiser is what makes the
+    difference between a usable frame and an overnight render, so it is worth
+    reaching for; but it is an optional dependency, and without it the caller
+    should simply render longer rather than fail.
+
+    Returns the frame unchanged, and says so, when the library is absent.
+    """
+    try:
+        import pyoidn
+    except ImportError:
+        return lin, False
+    src = np.ascontiguousarray(lin, dtype=np.float32)
+    out = np.empty_like(src)
+    dev = pyoidn.Device(pyoidn.OIDN_DEVICE_TYPE_CPU)
+    dev.commit()
+    filt = pyoidn.Filter(dev, "RT")
+    h, w = src.shape[:2]
+    filt.set_image("color", src, pyoidn.OIDN_FORMAT_FLOAT3, w, h)
+    if albedo is not None:
+        filt.set_image("albedo", np.ascontiguousarray(albedo, dtype=np.float32),
+                       pyoidn.OIDN_FORMAT_FLOAT3, w, h)
+    if normal is not None:
+        filt.set_image("normal", np.ascontiguousarray(normal, dtype=np.float32),
+                       pyoidn.OIDN_FORMAT_FLOAT3, w, h)
+    filt.set_image("output", out, pyoidn.OIDN_FORMAT_FLOAT3, w, h)
+    filt.set_bool("hdr", True)
+    filt.commit()
+    filt.execute()
+    err = dev.get_error()
+    if err and err[0] != 0:
+        raise RuntimeError(f"OpenImageDenoise failed: {err}")
+    return out, True
+
+
 def meter(lin, target=0.60, lo=0.02, hi=6.0):
     """The exposure that puts this frame's median at `target` after tone mapping.
 
@@ -154,9 +193,12 @@ def meter(lin, target=0.60, lo=0.02, hi=6.0):
 
 
 def grade(path_in, path_out, exposure=None, temp=1.02, bloom_strength=0.09,
+          use_denoise=False,
           vig=0.26, ca=0.45, grain_amount=0.006, contrast=1.13, lift=0.004):
     from PIL import Image
     lin = read_hdr(path_in)
+    if use_denoise:
+        lin, _ran = denoise(lin)
     if exposure is None:                 # auto-meter unless told otherwise
         exposure = meter(lin)
     lin = lin * exposure
