@@ -543,6 +543,80 @@ light_source { <26, 15, 24> color rgb <0.055,0.065,0.082>
   area_light <3,0,0>, <0,0,3>, 2, 2 adaptive 1 jitter shadowless }
 """
 
+def dressing(level, eye_xz=None):
+    """Curtains, planting, artwork and pendants, as (geometry, texture, code).
+
+    These used to be written straight into the POV-Ray output inside `emit`,
+    which meant a second renderer could only have them by copying the rules -
+    and a copy drifts. Yielding them instead keeps one description of how a
+    room is dressed, whoever is drawing it. Light sources stay with the
+    renderer, because each one lights a scene its own way.
+    """
+    rooms = G[level]["rooms"]
+    IN = {"n": (0, 1), "s": (0, -1), "w": (1, 0), "e": (-1, 0)}
+    for x, y, w, d, z0, z1, side in glass(level):
+        dx, dy = IN[side]
+        off, top = 0.20, SILL + WIN_H + 0.30
+        if side in ("n", "s"):
+            cy = y + dy * off
+            for px in (x - 0.32, x + w + 0.04):
+                for geo, tex in LIB.curtain(px, cy - 0.055, 0.30, 0.11, top,
+                                            pole=(px < x)):
+                    if geo:
+                        yield geo, tex, "CUR-904"
+        else:
+            cx = x + dx * off
+            for pz in (y - 0.32, y + d + 0.04):
+                for geo, tex in LIB.curtain(cx - 0.055, pz, 0.11, 0.30, top,
+                                            pole=(pz < y)):
+                    if geo:
+                        yield geo, tex, "CUR-904"
+
+    def free(bx_, by_, bw, bd):
+        for f in G[level]["furn"]:
+            if not (bx_ >= f["x"] + f["w"] or bx_ + bw <= f["x"] or
+                    by_ >= f["y"] + f["d"] or by_ + bd <= f["y"]):
+                return False
+        return True
+
+    for r in rooms:
+        if r["w"] * r["h"] < 12 or r["type"] in ("stair", "wc", "bath", "kitchen"):
+            continue
+        for fx, fy in ((0.08, 0.08), (0.92, 0.08), (0.08, 0.92), (0.92, 0.92)):
+            px = min(max(r["x"] + r["w"] * fx, r["x"] + 0.36), r["x"] + r["w"] - 0.36)
+            pz = min(max(r["y"] + r["h"] * fy, r["y"] + 0.36), r["y"] + r["h"] - 0.36)
+            if not free(px - 0.28, pz - 0.28, 0.56, 0.56):
+                continue
+            if eye_xz and (px - eye_xz[0]) ** 2 + (pz - eye_xz[1]) ** 2 < 1.45 ** 2:
+                continue
+            for geo, tex in LIB.potted_plant(
+                    px, pz, 1.10 if r["type"] in ("living", "majlis", "family") else 0.82):
+                yield geo, tex, "PLT-902"
+            break
+
+        busy = {w["side"] for w in r.get("win", [])}
+        if r.get("door"):
+            busy.add(r["door"]["side"])
+        for side in ("n", "s", "w", "e"):
+            if side in busy:
+                continue
+            if side == "n":   ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + 0.05, 1.10, 0.045
+            elif side == "s": ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + r["h"] - 0.095, 1.10, 0.045
+            elif side == "w": ax, az, aw, ad = r["x"] + 0.05, r["y"] + r["h"] / 2 - 0.55, 0.045, 1.10
+            else:             ax, az, aw, ad = r["x"] + r["w"] - 0.095, r["y"] + r["h"] / 2 - 0.55, 0.045, 1.10
+            for geo, tex in LIB.artwork(ax, az, aw, ad):
+                yield geo, tex, "ART-905"
+            break
+
+
+def pendant_tables(level):
+    """The low tables that earn a pendant over them."""
+    for bb in G[level]["furn"]:
+        if bb["kind"] != "wood" or bb["h"] > 0.8 or bb["w"] < 0.55 or bb["d"] < 0.4:
+            continue
+        yield bb["x"] + bb["w"] / 2, bb["y"] + bb["d"] / 2
+
+
 def emit(level, cam, out_path, rad=""):
     rooms = G[level]["rooms"]
     head = HEADER.replace("RAD_CACHE", rad)
@@ -622,69 +696,13 @@ def emit(level, cam, out_path, rad=""):
         L.append(f"light_source {{ <{cx:.2f},{cz:.2f},{cy:.2f}> color rgb <0.95,1.02,1.18>\n"
                  f"  area_light {a1}, {a2}, 5, 5 }}")
 
-    # curtains on poles, clear of the wall
-    IN = {"n": (0, 1), "s": (0, -1), "w": (1, 0), "e": (-1, 0)}
-    for x, y, w, d, z0, z1, side in glass(level):
-        dx, dy = IN[side]
-        off, top = 0.20, SILL + WIN_H + 0.30
-        if side in ("n", "s"):
-            cy = y + dy * off
-            for px in (x - 0.32, x + w + 0.04):
-                for geo, tex in LIB.curtain(px, cy - 0.055, 0.30, 0.11, top, pole=(px < x)):
-                    if geo:
-                        L.append(f"object {{ {geo} texture {{ {tex} }} }}")
-        else:
-            cx = x + dx * off
-            for pz in (y - 0.32, y + d + 0.04):
-                for geo, tex in LIB.curtain(cx - 0.055, pz, 0.11, 0.30, top, pole=(pz < y)):
-                    L.append(f"object {{ {geo} texture {{ {tex} }} }}")
-        used_codes.append("CUR-904")
+    for geo, tex, code in dressing(level, eye_xz):
+        L.append(f"object {{ {geo} texture {{ {tex} }} }}")
+        used_codes.append(code)
 
-    # planting and artwork, placed only where they clear the furniture
-    def free(bx_, by_, bw, bd):
-        for f in G[level]["furn"]:
-            if not (bx_ >= f["x"] + f["w"] or bx_ + bw <= f["x"] or
-                    by_ >= f["y"] + f["d"] or by_ + bd <= f["y"]):
-                return False
-        return True
-
-    for r in rooms:
-        if r["w"] * r["h"] < 12 or r["type"] in ("stair", "wc", "bath", "kitchen"):
-            continue
-        for fx, fy in ((0.08, 0.08), (0.92, 0.08), (0.08, 0.92), (0.92, 0.92)):
-            px = min(max(r["x"] + r["w"] * fx, r["x"] + 0.36), r["x"] + r["w"] - 0.36)
-            pz = min(max(r["y"] + r["h"] * fy, r["y"] + 0.36), r["y"] + r["h"] - 0.36)
-            if not free(px - 0.28, pz - 0.28, 0.56, 0.56):
-                continue
-            if eye_xz and (px - eye_xz[0]) ** 2 + (pz - eye_xz[1]) ** 2 < 1.45 ** 2:
-                continue
-            for geo, tex in LIB.potted_plant(px, pz,
-                                             1.10 if r["type"] in ("living", "majlis", "family")
-                                             else 0.82):
-                L.append(f"object {{ {geo} texture {{ {tex} }} }}")
-            used_codes.append("PLT-902")
-            break
-
-        busy = {w["side"] for w in r.get("win", [])}
-        if r.get("door"):
-            busy.add(r["door"]["side"])
-        for side in ("n", "s", "w", "e"):
-            if side in busy:
-                continue
-            if side == "n":   ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + 0.05, 1.10, 0.045
-            elif side == "s": ax, az, aw, ad = r["x"] + r["w"] / 2 - 0.55, r["y"] + r["h"] - 0.095, 1.10, 0.045
-            elif side == "w": ax, az, aw, ad = r["x"] + 0.05, r["y"] + r["h"] / 2 - 0.55, 0.045, 1.10
-            else:             ax, az, aw, ad = r["x"] + r["w"] - 0.095, r["y"] + r["h"] / 2 - 0.55, 0.045, 1.10
-            for geo, tex in LIB.artwork(ax, az, aw, ad):
-                L.append(f"object {{ {geo} texture {{ {tex} }} }}")
-            used_codes.append("ART-905")
-            break
-
-    # pendant over each low table
-    for bb in G[level]["furn"]:
-        if bb["kind"] != "wood" or bb["h"] > 0.8 or bb["w"] < 0.55 or bb["d"] < 0.4:
-            continue
-        cx, cy = bb["x"] + bb["w"] / 2, bb["y"] + bb["d"] / 2
+    # pendant bodies come from the shared dressing; the lamp inside each one
+    # is POV-Ray's own
+    for cx, cy in pendant_tables(level):
         for geo, tex in LIB.pendant(cx, cy, CEIL):
             L.append(f"object {{ {geo} texture {{ {tex} }} }}")
         used_codes.append("LGT-903")
@@ -702,6 +720,7 @@ def emit(level, cam, out_path, rad=""):
                  f"texture {{ pigment {{ rgb <0.97,0.96,0.94> }} finish {{ diffuse 0.3 specular 0.2 ambient 0 }} }} }}")
 
     open(out_path, "w").write("\n".join(L) + "\n")
+
     return sorted(set(used_codes))
 
 def camera_for(level, room_key, eye=(0.88, 0.86), target=(0.30, 0.22),

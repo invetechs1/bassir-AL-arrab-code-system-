@@ -374,6 +374,37 @@ def main(argv):
         if geo:
             add(geo, tex)
 
+    # curtains, planting, artwork - the same generator the POV-Ray path reads
+    for geo, tex, _code in SC.dressing(level, (eye[0], eye[1])):
+        if geo:
+            add(geo, tex)
+
+    # a pendant over each low table, with a real emitter inside the shade
+    for cx, cy in SC.pendant_tables(level):
+        for geo, tex in SC.LIB.pendant(cx, cy, SC.CEIL):
+            if geo:
+                add(geo, tex)
+        lamp = bpy.data.lights.new("pendant", "POINT")
+        lamp.energy, lamp.shadow_soft_size = 42.0, 0.09
+        lamp.color = (1.0, 0.92, 0.82)
+        o = bpy.data.objects.new("pendant", lamp)
+        o.location = (cx, cy, SC.CEIL - 0.78)
+        bpy.context.collection.objects.link(o)
+
+    # one ceiling downlight per room, as the POV-Ray scene has
+    for r in rooms:
+        if r["w"] * r["h"] < 7:
+            continue
+        cx, cy = r["x"] + r["w"] / 2, r["y"] + r["h"] / 2
+        add(SC.box(cx - 0.18, cy - 0.18, 0.36, 0.36, SC.CEIL - 0.03,
+                   SC.CEIL - 0.005), "T_White")
+        lamp = bpy.data.lights.new("downlight", "AREA")
+        lamp.energy, lamp.size = 18.0, 0.40
+        lamp.color = (1.0, 0.95, 0.88)
+        o = bpy.data.objects.new("downlight", lamp)
+        o.location = (cx, cy, SC.CEIL - 0.06)
+        bpy.context.collection.objects.link(o)
+
     camera(eye, look, fov)
 
     s = bpy.context.scene
